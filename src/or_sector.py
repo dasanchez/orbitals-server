@@ -1,6 +1,6 @@
 """
-or_board.py
-Orbitals board module
+or_sector.py
+Orbitals sector module
 Tracks:
 - teams
 - players
@@ -15,10 +15,10 @@ from or_words import OrbitalsWords
 from or_players import OrbitalsPlayers
 from or_timer import OrbitalsTimer
 
-class OrbitalsQuadrant:
+class OrbitalsSector:
     """ Top level class """
 
-    def __init__(self, wordCount, turnTimeout, quadrant):
+    def __init__(self, wordCount, turnTimeout, sector):
         self._gameInfo = {'state': 'waiting-players',
                           'hint': {'hintWord': '',
                                    'count': 0,
@@ -34,7 +34,7 @@ class OrbitalsQuadrant:
         self._gameWords = OrbitalsWords(wordCount)
         self._orbTimer = OrbitalsTimer(turnTimeout)
         self._players = OrbitalsPlayers()
-        self._quadrantName = quadrant
+        self._sectorName = sector
 
     async def newMessage(self, websocket, data):
         """ handles incoming message from players """
@@ -78,7 +78,7 @@ class OrbitalsQuadrant:
         return True
 
     async def newPlayer(self, name, websocket):
-        """ tries to register a new player in quadrant """
+        """ tries to register a new player in sector """
         success, response = self._players.addPlayer(name, websocket)
         if success:
             player = self._players.playerId(websocket)
@@ -87,7 +87,7 @@ class OrbitalsQuadrant:
             await websocket.send(msg)
             await orbComms.publishPlayers(self._players.getPlayerData(),
                                           self._players.enoughPlayers(), self._users)
-            messageDict = {'msg': '[JOINED THE QUADRANT]', 'msgSender': player.getName(),
+            messageDict = {'msg': '[JOINED THE SECTOR]', 'msgSender': player.getName(),
                            'msgTeam': player.getTeam()}
             await orbComms.publishMessage(messageDict, self._players.getPlayers())
         else:
@@ -347,7 +347,7 @@ class OrbitalsQuadrant:
         player = self._players.playerId(websocket)
         notify = False
         if player:
-            messageDict = {'msg': '[LEFT THE QUADRANT]', 'msgSender': player.getName(),
+            messageDict = {'msg': '[LEFT THE SECTOR]', 'msgSender': player.getName(),
                            'msgTeam': player.getTeam()}
             notify = True
         if not self._players.removePlayer(websocket):
@@ -409,16 +409,21 @@ class OrbitalsQuadrant:
         self._gameWords.setSimulationWords()
         self._gameInfo['turn'] = 'O'
 
-    def getQuadrantDetails(self):
-        # return player count for both teams and quadrant name
-        qDetails = dict()
+    def getSectorDetails(self):
+        # return player count for both teams and sector name
+        sectorDetails = dict()
         
-        # populate quadrant dictionary
-        qDetails['name'] = self._quadrantName
-        qDetails['orangeHub'] = self._players.haveOrangeRoot()
-        qDetails['blueHub'] = self._players.haveBlueRoot()
-        qDetails['orangeTeam'] = self._players.getOrangeTeamCount()
-        qDetails['blueTeam'] = self._players.getBlueTeamCount()
-        # qDetails['oOrb'] = self._players.get
+        # populate sector dictionary
+        sectorDetails['name'] = self._sectorName
+        sectorDetails['orangeHub'] = self._players.haveOrangeRoot()
+        sectorDetails['blueHub'] = self._players.haveBlueRoot()
+        orangeOrbitals = self._players.getOrangeTeamCount()
+        blueOrbitals = self._players.getBlueTeamCount()
+        if sectorDetails['orangeHub']:
+            orangeOrbitals -= 1
+        if sectorDetails['blueHub']:
+            blueOrbitals -= 1
+        sectorDetails['orangeOrbitals'] = orangeOrbitals
+        sectorDetails['blueTeam'] = blueOrbitals
 
-        return qDetails
+        return sectorDetails

@@ -1,20 +1,21 @@
 """
 Orbitals WebSockets Server
 """
+from pprint import pprint
 import asyncio
 import json
 import websockets
 from or_cluster import OrbitalsCluster
 
-orCluster = OrbitalsCluster(quadrantCount=4)
+orCluster = OrbitalsCluster(sectorCount=4)
 
 def main():
     """ starts the game loop """
     print("State set to 'waiting-players'")
-    print("Initialized quadrants:")
-    print(f"Quadrants: {orCluster.getClusterStatus()}")
+    print("Initialized sectors:")
+    print("Sectors:")
+    pprint(orCluster.getClusterStatus())
     print("Starting WebSocket server...")
-
 
     # Set up async routines
     loop = asyncio.new_event_loop()
@@ -27,8 +28,7 @@ def main():
 
 async def handle_message(websocket, data):
     """ handles incoming message from players """
-    pass
-    # await orCluster.newMessage(websocket, data)
+    await orCluster.newMessage(websocket, data)
 
 async def handler(websocket, _):
     """ register(websocket) sends user_event() to websocket """

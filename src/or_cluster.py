@@ -4,37 +4,41 @@ Orbitals cluster module
 Tracks quadrants and routes player packets accordingly.
 """
 import json
-from or_quadrant import OrbitalsQuadrant
+from pprint import pprint
+from or_sector import OrbitalsSector
 
-quadrantNames = ['ALPHA', 'BETA', 'GAMMA', 'DELTA']
+sectorNames = ['ALPHA', 'BETA', 'GAMMA', 'DELTA',
+               'PHI', 'CHI', 'PSI', 'OMEGA']
 
 class OrbitalsCluster:
     """ Top level class """
 
-    def __init__(self, quadrantCount = 4):
+    def __init__(self, sectorCount = 4):
         # initialize set of quadrants
-        self._quadrants = set()
-        self._users = set()
-        self._userQuadrants = dict()
-        self.populateQuadrants(quadrantCount)
+        self._sectors = set()
+        # self._users = set()
+        self._userSectors = dict()
+        self._sectorDict = dict()
+        self.populateSectors(sectorCount)
         
-    def populateQuadrants(self, count):
+    def populateSectors(self, count):
         # populate quadrant set
         for i in range(count):
-            newQuadrant = OrbitalsQuadrant(wordCount=16,
+            newSector = OrbitalsSector(wordCount=16,
                                            turnTimeout=30,
-                                           quadrant=quadrantNames[i])
-            self._quadrants.add(newQuadrant)
+                                           sector=sectorNames[i])
+            self._sectors.add(newSector)
+            self._sectorDict[sectorNames[i]] = newSector
     
-    def printQuadrants(self):
-        for quadrant in self._quadrants:
-            print(f"{quadrant.getQuadrantDetails()}")
+    def printSectors(self):
+        for sector in self._sectors:
+            print(f"{sector.getSectorDetails()}")
 
     def getClusterStatus(self):
         # returns a dict with all the quadrants and their players
         clusterStatus = []
-        for q in self._quadrants:
-            clusterStatus.append(q.getQuadrantDetails())
+        for s in self._sectors:
+            clusterStatus.append(s.getSectorDetails())
         return clusterStatus
 
     # def newPlayer(self, websocket):
@@ -44,27 +48,53 @@ class OrbitalsCluster:
         """ register player """
         print("New user connected")
 
-        self._users.add(websocket)
-        self._userQuadrants[websocket] = None
+        # self._users.add(websocket)
+        self._userSectors[websocket] = None
         # issue cluster info
-        packet = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
-                #   'clusters': {
-                      
-                #   },
+        sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
+        packet = {}
+        packet['type'] = 'sectors'
+        packet['sectors'] = sectors
         msg = json.dumps(packet)
         await websocket.send(msg)
-        # issue list of players
-        # await orbComms.publishPlayers(self._players.getPlayerData(),
-                                    #   self._players.enoughPlayers(), self._users)
 
     async def deleteConnection(self, websocket):
         """player has left:
         1. find out which orbital they belonged to
         2. send the signal to the relevant orbital
         """
-
-        if self._userQuadrants[websocket]:
-            q = self._userQuadrants[websocket]
-            print(f"User belonged to {q.getQuadrantDetails()['name']} quadrant")
+        sector = self._userSectors[websocket]
+        if sector:
+            print(f"User is leaving sector {sector.getSectorDetails()['name']}.")
+            await sector.deleteConnection(websocket)
+            
         else:
-            print("User did not belong to any quadrant.")
+            print("User did not belong to any sector.")
+
+        self._userSectors.pop(websocket, None)
+        pprint(f"User sectors: {self._userSectors}")
+
+    async def newMessage(self, websocket, data):
+        """
+        parse new message:
+        1. if message asks to join a sector, handle in this class
+        2. otherwise, find the sector the player belongs to and route accordingly
+        """
+        playerSector = self._userSectors[websocket]
+        if playerSector is None:
+            # player doesn't belong to a sector
+            if (data['type'] == 'join-sector'):
+                # get player to join the sector
+                requestedSector = data['sector']
+                sector = self._sectorDict[requestedSector]
+                if sector:
+                    await sector.newConnection(websocket)
+                    self._userSectors[websocket] = sector
+                    print(f"Player has joined sector {requestedSector}")
+        else:
+            # player already belongs to a sector
+            # TODO: what if the player wants to leave a sector?
+            sector = self._userSectors[websocket]
+            await sector.newMessage(websocket,data)
+
+            
