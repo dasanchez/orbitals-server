@@ -7,8 +7,8 @@ import json
 from pprint import pprint
 from or_sector import OrbitalsSector
 
-sectorNames = ['ALPHA', 'BETA', 'GAMMA', 'DELTA',
-               'PHI', 'CHI', 'PSI', 'OMEGA']
+sectorNames = ['α / ALPHA', 'β / BETA', 'γ / GAMMA', 'δ / DELTA',
+               'φ / PHI', 'χ / CHI', 'ψ / PSI', 'ω / OMEGA']
 
 class OrbitalsCluster:
     """ Top level class """
@@ -72,7 +72,8 @@ class OrbitalsCluster:
             print("User did not belong to any sector.")
 
         self._userSectors.pop(websocket, None)
-        pprint(f"User sectors: {self._userSectors}")
+        await self.publishClusterStatus()
+        # pprint(f"User sectors: {self._userSectors}")
 
     async def newMessage(self, websocket, data):
         """
@@ -83,7 +84,7 @@ class OrbitalsCluster:
         playerSector = self._userSectors[websocket]
         if playerSector is None:
             # player doesn't belong to a sector
-            if (data['type'] == 'join-sector'):
+            if data['type'] == 'join-sector':
                 # get player to join the sector
                 requestedSector = data['sector']
                 sector = self._sectorDict[requestedSector]
@@ -91,10 +92,22 @@ class OrbitalsCluster:
                     await sector.newConnection(websocket)
                     self._userSectors[websocket] = sector
                     print(f"Player has joined sector {requestedSector}")
+                    
         else:
             # player already belongs to a sector
             # TODO: what if the player wants to leave a sector?
             sector = self._userSectors[websocket]
             await sector.newMessage(websocket,data)
 
-            
+        if data['type'] == 'team-request' or data['type'] == 'source-request':
+            await self.publishClusterStatus()
+
+    async def publishClusterStatus(self):
+        # publish update to all users with no sectors:
+        sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
+        packet = {'type': 'sectors',
+                  'sectors': sectors}
+        msg = json.dumps(packet)
+        for user in self._userSectors.keys():
+            if not self._userSectors[user]:
+                await user.send(msg)

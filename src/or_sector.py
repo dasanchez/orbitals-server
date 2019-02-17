@@ -317,13 +317,20 @@ class OrbitalsSector:
     async def newConnection(self, websocket):
         """ register player """
         print("New user connected")
-
         self._users.add(websocket)
+
+        sectorPacket = {'type': 'response',
+                        'msg': 'joined-sector',
+                        'sector': self._sectorName}
+        msg = json.dumps(sectorPacket)
+        await websocket.send(msg)
         # issue state
         gameState = self._gameInfo['state']
         packet = {'type': 'state', 'state': gameState,
                   'turn': self._gameInfo['turn'],
-                  'entry': 'name-entry'}
+                  'entry': 'name-entry',
+                  'sector': self._sectorName,
+                  'prompt': 'Waiting for players'}
         if gameState == 'guess-submission':
             packet['hint'] = self._gameInfo['hint']['hintWord']
             packet['guesses'] = self._gameInfo['guesses']
@@ -424,6 +431,9 @@ class OrbitalsSector:
         if sectorDetails['blueHub']:
             blueOrbitals -= 1
         sectorDetails['orangeOrbitals'] = orangeOrbitals
-        sectorDetails['blueTeam'] = blueOrbitals
-
+        sectorDetails['blueOrbitals'] = blueOrbitals
+        if (self._players.getBlueTeamCount() + self._players.getOrangeTeamCount()) < 8:
+            sectorDetails['open'] = True
+        else:
+            sectorDetails['open'] = False
         return sectorDetails

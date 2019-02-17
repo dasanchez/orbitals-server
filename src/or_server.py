@@ -7,7 +7,7 @@ import json
 import websockets
 from or_cluster import OrbitalsCluster
 
-orCluster = OrbitalsCluster(sectorCount=4)
+orCluster = OrbitalsCluster(sectorCount=8)
 
 def main():
     """ starts the game loop """
