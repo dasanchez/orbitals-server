@@ -95,12 +95,26 @@ class OrbitalsCluster:
                     
         else:
             # player already belongs to a sector
-            # TODO: what if the player wants to leave a sector?
-            sector = self._userSectors[websocket]
-            await sector.newMessage(websocket,data)
+            if data['type'] == 'leave-sector':
+                # only capture one type of message: user leaving the sector
+                print(f"User is leaving sector {playerSector.getSectorDetails()['name']}.")
+                await playerSector.deleteConnection(websocket)
 
-        if data['type'] == 'team-request' or data['type'] == 'source-request':
-            await self.publishClusterStatus()
+                # send message to user to notify they are sector-less
+                sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
+                packet = {}
+                packet['type'] = 'sectors'
+                packet['sectors'] = sectors
+                msg = json.dumps(packet)
+                await websocket.send(msg)
+
+            else:
+                # message gets a pass-through
+                sector = self._userSectors[websocket]
+                await sector.newMessage(websocket,data)
+
+                if data['type'] == 'team-request' or data['type'] == 'source-request':
+                    await self.publishClusterStatus()
 
     async def publishClusterStatus(self):
         # publish update to all users with no sectors:
