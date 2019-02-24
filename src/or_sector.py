@@ -1,6 +1,6 @@
 """
-or_board.py
-Orbitals board module
+or_sector.py
+Orbitals sector module
 Tracks:
 - teams
 - players
@@ -15,10 +15,10 @@ from or_words import OrbitalsWords
 from or_players import OrbitalsPlayers
 from or_timer import OrbitalsTimer
 
-class OrbitalsTable:
+class OrbitalsSector:
     """ Top level class """
 
-    def __init__(self, wordCount, turnTimeout):
+    def __init__(self, wordCount, turnTimeout, sector):
         self._gameInfo = {'state': 'waiting-players',
                           'hint': {'hintWord': '',
                                    'count': 0,
@@ -34,6 +34,7 @@ class OrbitalsTable:
         self._gameWords = OrbitalsWords(wordCount)
         self._orbTimer = OrbitalsTimer(turnTimeout)
         self._players = OrbitalsPlayers()
+        self._sectorName = sector
 
     async def newMessage(self, websocket, data):
         """ handles incoming message from players """
@@ -77,7 +78,7 @@ class OrbitalsTable:
         return True
 
     async def newPlayer(self, name, websocket):
-        """ tries to register a new player with table """
+        """ tries to register a new player in sector """
         success, response = self._players.addPlayer(name, websocket)
         if success:
             player = self._players.playerId(websocket)
@@ -86,7 +87,7 @@ class OrbitalsTable:
             await websocket.send(msg)
             await orbComms.publishPlayers(self._players.getPlayerData(),
                                           self._players.enoughPlayers(), self._users)
-            messageDict = {'msg': '[JOINED THE TABLE]', 'msgSender': player.getName(),
+            messageDict = {'msg': '[JOINED THE SECTOR]', 'msgSender': player.getName(),
                            'msgTeam': player.getTeam()}
             await orbComms.publishMessage(messageDict, self._players.getPlayers())
         else:
@@ -316,13 +317,20 @@ class OrbitalsTable:
     async def newConnection(self, websocket):
         """ register player """
         print("New user connected")
-
         self._users.add(websocket)
+
+        sectorPacket = {'type': 'response',
+                        'msg': 'joined-sector',
+                        'sector': self._sectorName}
+        msg = json.dumps(sectorPacket)
+        await websocket.send(msg)
         # issue state
         gameState = self._gameInfo['state']
         packet = {'type': 'state', 'state': gameState,
                   'turn': self._gameInfo['turn'],
-                  'entry': 'name-entry'}
+                  'entry': 'name-entry',
+                  'sector': self._sectorName,
+                  'prompt': 'Waiting for players'}
         if gameState == 'guess-submission':
             packet['hint'] = self._gameInfo['hint']['hintWord']
             packet['guesses'] = self._gameInfo['guesses']
@@ -346,7 +354,7 @@ class OrbitalsTable:
         player = self._players.playerId(websocket)
         notify = False
         if player:
-            messageDict = {'msg': '[LEFT THE TABLE]', 'msgSender': player.getName(),
+            messageDict = {'msg': '[LEFT THE SECTOR]', 'msgSender': player.getName(),
                            'msgTeam': player.getTeam()}
             notify = True
         if not self._players.removePlayer(websocket):
@@ -407,3 +415,25 @@ class OrbitalsTable:
         """ Utility function for development """
         self._gameWords.setSimulationWords()
         self._gameInfo['turn'] = 'O'
+
+    def getSectorDetails(self):
+        # return player count for both teams and sector name
+        sectorDetails = dict()
+        
+        # populate sector dictionary
+        sectorDetails['name'] = self._sectorName
+        sectorDetails['orangeHub'] = self._players.haveOrangeRoot()
+        sectorDetails['blueHub'] = self._players.haveBlueRoot()
+        orangeOrbitals = self._players.getOrangeTeamCount()
+        blueOrbitals = self._players.getBlueTeamCount()
+        if sectorDetails['orangeHub']:
+            orangeOrbitals -= 1
+        if sectorDetails['blueHub']:
+            blueOrbitals -= 1
+        sectorDetails['orangeOrbitals'] = orangeOrbitals
+        sectorDetails['blueOrbitals'] = blueOrbitals
+        if (self._players.getBlueTeamCount() + self._players.getOrangeTeamCount()) < 8:
+            sectorDetails['open'] = True
+        else:
+            sectorDetails['open'] = False
+        return sectorDetails

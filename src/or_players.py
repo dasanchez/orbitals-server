@@ -15,7 +15,7 @@ class OrbitalsPlayers:
         self._orangeTeam = 0
 
     def getPlayers(self):
-        """ Returns set of mf_player objects """
+        """ Returns set of or_player objects """
         return self._players
 
     def getPlayerData(self):
@@ -34,6 +34,12 @@ class OrbitalsPlayers:
         """ Returns a set of player names """
         return {player.getName() for player in self._players}
 
+    def getOrangeTeamCount(self):
+        return self._orangeTeam
+
+    def getBlueTeamCount(self):
+        return self._blueTeam
+
     def nameExists(self, name):
         """ Returns True if name is already taken, False if it isn't """
         names = {player.getName() for player in self._players}
@@ -42,7 +48,7 @@ class OrbitalsPlayers:
     def addPlayer(self, name, websocket):
         """
         If the requested name isn't taken yet:
-            - Adds new mf_player to _players list
+            - Adds new or_player to _players list
             - Returns True
         if the name is already taken: returns False
         """
@@ -73,7 +79,7 @@ class OrbitalsPlayers:
                 break
         if retiredPlayer:
             self._players.remove(retiredPlayer)
-            del retiredPlayer
+            # del retiredPlayer
 
         if not self.enoughPlayers():
             for player in self.getPlayers():
