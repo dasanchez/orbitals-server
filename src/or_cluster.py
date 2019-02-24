@@ -7,8 +7,8 @@ import json
 from pprint import pprint
 from or_sector import OrbitalsSector
 
-sectorNames = ['α / ALPHA', 'β / BETA', 'γ / GAMMA', 'δ / DELTA',
-               'φ / PHI', 'χ / CHI', 'ψ / PSI', 'ω / OMEGA']
+sectorNames = ['α: ALPHA', 'β: BETA', 'γ: GAMMA', 'δ: DELTA',
+               'φ: PHI', 'χ: CHI', 'ψ: PSI', 'ω: OMEGA']
 
 class OrbitalsCluster:
     """ Top level class """
@@ -16,7 +16,7 @@ class OrbitalsCluster:
     def __init__(self, sectorCount = 4):
         # initialize set of quadrants
         self._sectors = set()
-        # self._users = set()
+        self._users = set()
         self._userSectors = dict()
         self._sectorDict = dict()
         self.populateSectors(sectorCount)
@@ -92,22 +92,32 @@ class OrbitalsCluster:
                     await sector.newConnection(websocket)
                     self._userSectors[websocket] = sector
                     print(f"Player has joined sector {requestedSector}")
+                else:
+                    print(f"{requestedSector} does not exist")
                     
         else:
             # player already belongs to a sector
             if data['type'] == 'leave-sector':
                 # only capture one type of message: user leaving the sector
                 print(f"User is leaving sector {playerSector.getSectorDetails()['name']}.")
+                
+                # notify the sector
                 await playerSector.deleteConnection(websocket)
 
                 # send message to user to notify they are sector-less
                 sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
                 packet = {}
-                packet['type'] = 'sectors'
+                packet['type'] = 'response'
+                packet['msg'] = 'left-sector'
                 packet['sectors'] = sectors
+                packet['prompt'] = "Choose a sector"
                 msg = json.dumps(packet)
                 await websocket.send(msg)
 
+                # remove user from dictionary and publish cluster status
+                self._userSectors[websocket] = None
+                await self.publishClusterStatus()
+        
             else:
                 # message gets a pass-through
                 sector = self._userSectors[websocket]

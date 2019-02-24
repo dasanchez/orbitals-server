@@ -79,7 +79,7 @@ class OrbitalsPlayers:
                 break
         if retiredPlayer:
             self._players.remove(retiredPlayer)
-            del retiredPlayer
+            # del retiredPlayer
 
         if not self.enoughPlayers():
             for player in self.getPlayers():
