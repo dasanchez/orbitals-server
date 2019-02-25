@@ -7,8 +7,10 @@ import json
 from pprint import pprint
 from or_sector import OrbitalsSector
 
-sectorNames = ['α: ALPHA', 'β: BETA', 'γ: GAMMA', 'δ: DELTA',
-               'φ: PHI', 'χ: CHI', 'ψ: PSI', 'ω: OMEGA']
+sectorNames = ['ALPHA', 'BETA', 'GAMMA', 'DELTA',
+               'PHI', 'CHI', 'PSI', 'OMEGA']
+sectorSymbols = ['α', 'β', 'γ', 'δ',
+               'φ', 'χ', 'ψ', 'ω']
 
 class OrbitalsCluster:
     """ Top level class """
@@ -16,9 +18,10 @@ class OrbitalsCluster:
     def __init__(self, sectorCount = 4):
         # initialize set of quadrants
         self._sectors = set()
-        self._users = set()
+        # self._users = set()
         self._userSectors = dict()
         self._sectorDict = dict()
+        self._userNames = dict()
         self.populateSectors(sectorCount)
         
     def populateSectors(self, count):
@@ -26,7 +29,8 @@ class OrbitalsCluster:
         for i in range(count):
             newSector = OrbitalsSector(wordCount=16,
                                            turnTimeout=30,
-                                           sector=sectorNames[i])
+                                           name=sectorNames[i],
+                                           symbol=sectorSymbols[i])
             self._sectors.add(newSector)
             self._sectorDict[sectorNames[i]] = newSector
     
@@ -50,11 +54,12 @@ class OrbitalsCluster:
 
         # self._users.add(websocket)
         self._userSectors[websocket] = None
-        # issue cluster info
-        sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
+
         packet = {}
-        packet['type'] = 'sectors'
-        packet['sectors'] = sectors
+        packet['type'] = 'welcome'
+        packet['prompt'] = 'Enter your name'
+        # packet['type'] = 'sectors'
+        # packet['sectors'] = sectors
         msg = json.dumps(packet)
         await websocket.send(msg)
 
@@ -72,6 +77,7 @@ class OrbitalsCluster:
             print("User did not belong to any sector.")
 
         self._userSectors.pop(websocket, None)
+        self._userNames.pop(websocket, None)
         await self.publishClusterStatus()
         # pprint(f"User sectors: {self._userSectors}")
 
@@ -89,11 +95,38 @@ class OrbitalsCluster:
                 requestedSector = data['sector']
                 sector = self._sectorDict[requestedSector]
                 if sector:
-                    await sector.newConnection(websocket)
+                    await sector.newPlayer(self._userNames[websocket], websocket)
                     self._userSectors[websocket] = sector
                     print(f"Player has joined sector {requestedSector}")
                 else:
                     print(f"{requestedSector} does not exist")
+            elif data['type'] == 'name-request':
+                name = data['name']
+                if not name:
+                    # name is blank
+                    response = 'Name is blank'
+                    packet = {'type': 'response',
+                              'msg': "name-not-accepted",
+                              'reason': response}
+                    msg = json.dumps(packet)
+                    await websocket.send(msg)
+                elif name in self._userNames.values():
+                    # name is taken
+                    response = 'Name exists'
+                    packet = {'type': 'response',
+                              'msg': "name-not-accepted",
+                              'reason': response}
+                    msg = json.dumps(packet)
+                    await websocket.send(msg)
+                else:
+                    # name is OK
+                    self._userNames[websocket] = name
+                    packet = {'type': 'response', 'msg': "name-accepted", 'name': name}
+                    packet['prompt'] = "Choose a sector"
+                    sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['symbol'])
+                    packet['sectors'] = sectors
+                    msg = json.dumps(packet)
+                    await websocket.send(msg)
                     
         else:
             # player already belongs to a sector

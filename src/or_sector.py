@@ -18,7 +18,7 @@ from or_timer import OrbitalsTimer
 class OrbitalsSector:
     """ Top level class """
 
-    def __init__(self, wordCount, turnTimeout, sector):
+    def __init__(self, wordCount, turnTimeout, name, symbol):
         self._gameInfo = {'state': 'waiting-players',
                           'hint': {'hintWord': '',
                                    'count': 0,
@@ -34,7 +34,9 @@ class OrbitalsSector:
         self._gameWords = OrbitalsWords(wordCount)
         self._orbTimer = OrbitalsTimer(turnTimeout)
         self._players = OrbitalsPlayers()
-        self._sectorName = sector
+        self._sectorName = name
+        self._sectorSymbol = symbol
+
 
     async def newMessage(self, websocket, data):
         """ handles incoming message from players """
@@ -77,25 +79,64 @@ class OrbitalsSector:
                     self._orbTimer.start()
         return True
 
+    async def deleteConnection(self, websocket):
+        """
+        Handles a player leaving the game:
+        If there aren't enough players left:
+        - change state to 'waiting-players'
+        - stop timer
+        """
+        self._users.remove(websocket)
+        player = self._players.playerId(websocket)
+       
+        messageDict = {'msg': '[LEFT THE SECTOR]', 'msgSender': player.getName(),
+                           'msgTeam': player.getTeam()}
+        
+        if not self._players.removePlayer(websocket):
+            self._gameInfo['state'] = 'waiting-players'
+            self._orbTimer.stop()
+
+        self._gameInfo['blue-root'] = self._players.haveBlueRoot()
+        self._gameInfo['orange-root'] = self._players.haveOrangeRoot()
+        print(f"gameInfo: {self._gameInfo}")
+        
+        await orbComms.publishMessage(messageDict, self._players.getPlayers())
+        await orbComms.publishPlayers(self._players.getPlayerData(),
+                                      self._players.enoughPlayers(), self._users)
+        await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
+
     async def newPlayer(self, name, websocket):
         """ tries to register a new player in sector """
-        success, response = self._players.addPlayer(name, websocket)
-        if success:
-            player = self._players.playerId(websocket)
-            packet = {'type': 'response', 'msg': "name-accepted", 'name': name}
-            msg = json.dumps(packet)
-            await websocket.send(msg)
-            await orbComms.publishPlayers(self._players.getPlayerData(),
-                                          self._players.enoughPlayers(), self._users)
-            messageDict = {'msg': '[JOINED THE SECTOR]', 'msgSender': player.getName(),
-                           'msgTeam': player.getTeam()}
-            await orbComms.publishMessage(messageDict, self._players.getPlayers())
-        else:
-            packet = {'type': 'response',
-                      'msg': "name-not-accepted", 'reason': response}
-            msg = json.dumps(packet)
-            await websocket.send(msg)
+        self._users.add(websocket)
+        self._players.addPlayer(name, websocket)
 
+        sectorPacket = {'type': 'response',
+                        'msg': 'joined-sector',
+                        'sector': self._sectorName}
+        msg = json.dumps(sectorPacket)
+        await websocket.send(msg)
+        # issue state
+        gameState = self._gameInfo['state']
+        packet = {'type': 'state', 'state': gameState,
+                  'turn': self._gameInfo['turn'],
+                  'entry': 'team-selection',
+                  'sector': self._sectorName,
+                  'prompt': 'Waiting for players'}
+        if gameState == 'guess-submission':
+            packet['hint'] = self._gameInfo['hint']['hintWord']
+            packet['guesses'] = self._gameInfo['guesses']
+        elif gameState == 'game-over':
+            packet['winner'] = self._gameInfo['winner']
+        msg = json.dumps(packet)
+        await websocket.send(msg)
+
+        player = self._players.playerId(websocket)
+        await orbComms.publishPlayers(self._players.getPlayerData(),
+                                      self._players.enoughPlayers(), self._users)
+        messageDict = {'msg': '[JOINED THE SECTOR]', 'msgSender': player.getName(),
+                       'msgTeam': player.getTeam()}
+        await orbComms.publishMessage(messageDict, self._players.getPlayers())
+        
     async def teamRequest(self, websocket, team):
         """ assigns player to requested team """
         success, response = self._players.joinTeam(websocket, team)
@@ -314,62 +355,6 @@ class OrbitalsSector:
         loop.create_task(self.countdown())
         print(f"{self._gameInfo['turn']} team goes first")
 
-    async def newConnection(self, websocket):
-        """ register player """
-        print("New user connected")
-        self._users.add(websocket)
-
-        sectorPacket = {'type': 'response',
-                        'msg': 'joined-sector',
-                        'sector': self._sectorName}
-        msg = json.dumps(sectorPacket)
-        await websocket.send(msg)
-        # issue state
-        gameState = self._gameInfo['state']
-        packet = {'type': 'state', 'state': gameState,
-                  'turn': self._gameInfo['turn'],
-                  'entry': 'name-entry',
-                  'sector': self._sectorName,
-                  'prompt': 'Waiting for players'}
-        if gameState == 'guess-submission':
-            packet['hint'] = self._gameInfo['hint']['hintWord']
-            packet['guesses'] = self._gameInfo['guesses']
-        elif gameState == 'game-over':
-            packet['winner'] = self._gameInfo['winner']
-        msg = json.dumps(packet)
-        await websocket.send(msg)
-        # issue list of players
-        await orbComms.publishPlayers(self._players.getPlayerData(),
-                                      self._players.enoughPlayers(), self._users)
-        # print(websocket.remote_address[0])
-
-    async def deleteConnection(self, websocket):
-        """
-        Handles a player leaving the game:
-        If there aren't enough players left:
-        - change state to 'waiting-players'
-        - stop timer
-        """
-        self._users.remove(websocket)
-        player = self._players.playerId(websocket)
-        notify = False
-        if player:
-            messageDict = {'msg': '[LEFT THE SECTOR]', 'msgSender': player.getName(),
-                           'msgTeam': player.getTeam()}
-            notify = True
-        if not self._players.removePlayer(websocket):
-            self._gameInfo['state'] = 'waiting-players'
-            self._orbTimer.stop()
-
-        self._gameInfo['blue-root'] = self._players.haveBlueRoot()
-        self._gameInfo['orange-root'] = self._players.haveOrangeRoot()
-        print(f"gameInfo: {self._gameInfo}")
-        if notify:
-            await orbComms.publishMessage(messageDict, self._players.getPlayers())
-        await orbComms.publishPlayers(self._players.getPlayerData(),
-                                      self._players.enoughPlayers(), self._users)
-        await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
-
     def clearBoard(self):
         """
         Reset game status:
@@ -422,6 +407,7 @@ class OrbitalsSector:
         
         # populate sector dictionary
         sectorDetails['name'] = self._sectorName
+        sectorDetails['symbol'] = self._sectorSymbol
         sectorDetails['orangeHub'] = self._players.haveOrangeRoot()
         sectorDetails['blueHub'] = self._players.haveBlueRoot()
         orangeOrbitals = self._players.getOrangeTeamCount()
