@@ -7,8 +7,10 @@ import json
 from pprint import pprint
 from or_sector import OrbitalsSector
 
-sectorNames = ['α: ALPHA', 'β: BETA', 'γ: GAMMA', 'δ: DELTA',
-               'φ: PHI', 'χ: CHI', 'ψ: PSI', 'ω: OMEGA']
+sectorNames = ['ALPHA', 'BETA', 'GAMMA', 'DELTA',
+               'PHI', 'CHI', 'PSI', 'OMEGA']
+sectorSymbols = ['α', 'β', 'γ', 'δ',
+               'φ', 'χ', 'ψ', 'ω']
 
 class OrbitalsCluster:
     """ Top level class """
@@ -27,7 +29,8 @@ class OrbitalsCluster:
         for i in range(count):
             newSector = OrbitalsSector(wordCount=16,
                                            turnTimeout=30,
-                                           sector=sectorNames[i])
+                                           name=sectorNames[i],
+                                           symbol=sectorSymbols[i])
             self._sectors.add(newSector)
             self._sectorDict[sectorNames[i]] = newSector
     
@@ -99,16 +102,16 @@ class OrbitalsCluster:
                     print(f"{requestedSector} does not exist")
             elif data['type'] == 'name-request':
                 name = data['name']
-                # is name blank?
                 if not name:
+                    # name is blank
                     response = 'Name is blank'
                     packet = {'type': 'response',
                               'msg': "name-not-accepted",
                               'reason': response}
                     msg = json.dumps(packet)
                     await websocket.send(msg)
-                # does name exist in userNames dictionary?
                 elif name in self._userNames.values():
+                    # name is taken
                     response = 'Name exists'
                     packet = {'type': 'response',
                               'msg': "name-not-accepted",
@@ -116,10 +119,11 @@ class OrbitalsCluster:
                     msg = json.dumps(packet)
                     await websocket.send(msg)
                 else:
+                    # name is OK
                     self._userNames[websocket] = name
                     packet = {'type': 'response', 'msg': "name-accepted", 'name': name}
                     packet['prompt'] = "Choose a sector"
-                    sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
+                    sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['symbol'])
                     packet['sectors'] = sectors
                     msg = json.dumps(packet)
                     await websocket.send(msg)
