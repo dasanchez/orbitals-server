@@ -20,13 +20,13 @@ class OrbitalsPlayers:
 
     def getPlayerData(self):
         """
-        Returns list of player data dicts: name, team, source, and ready
+        Returns list of player data dicts: name, team, hub, and ready
         """
         playerData = []
         for player in self._players:
             playerData.append({'name': player.getName(),
                                'team': player.getTeam(),
-                               'src': player.isSource(),
+                               'src': player.isHub(),
                                'ready': player.isReady()})
         return playerData
 
@@ -89,30 +89,32 @@ class OrbitalsPlayers:
 
     def enoughPlayers(self):
         """
-        Returns true if there is at least one source and one player per team,
+        Returns true if there is at least one hub and one player per team,
         false otherwise
         """
         self._blueRoot = False
         self._orangeRoot = False
         self._blueTeam = 0
         self._orangeTeam = 0
-        oPlayers = bPlayers = oSource = bSource = False
+        oPlayers = bPlayers = oHub = bHub = False
         for player in self._players:
             if player.getTeam() == 'B':
                 self._blueTeam += 1
-                if player.isSource():
-                    bSource = True
+                if player.isHub():
+                    # print(f"player {player.getName()} is hub!")
+                    bHub = True
                     self._blueRoot = True
                 else:
                     bPlayers = True
             elif player.getTeam() == 'O':
                 self._orangeTeam += 1
-                if player.isSource():
-                    oSource = True
+                if player.isHub():
+                    # print(f"player {player.getName()} is hub!")
+                    oHub = True
                     self._orangeRoot = True
                 else:
                     oPlayers = True
-        requiredList = [oPlayers, bPlayers, oSource, bSource]
+        requiredList = [oPlayers, bPlayers, oHub, bHub]
         self._enoughPlayers = all(requiredList)
         return self._enoughPlayers
 
@@ -146,20 +148,25 @@ class OrbitalsPlayers:
         Otherwise return False
         """
         print(f"{self.playerName(websocket)} has requested team {team}")
-        # check if there are less than four players in the team
+        player = self.playerId(websocket)
+        
+        if player.isHub():
+            player.setHub(role = False)
         if team == 'O':
             if self._orangeTeam < 4:
-                self.playerId(websocket).setTeam(team)
+                player.setTeam(team)
             else:
                 return False, 'Orange team is full'
+    
         elif team == 'B':
             if self._blueTeam < 4:
-                self.playerId(websocket).setTeam(team)
+                player.setTeam(team)
             else:
                 return False, 'Blue team is full'
+        
         self.enoughPlayers()
         return True, 'team-accepted'
-
+        
     def getTeam(self, name):
         """ Returns the team the player belongs to """
         for player in self._players:
@@ -167,27 +174,34 @@ class OrbitalsPlayers:
                 return player.getTeam()
         return False
 
-    def requestSource(self, websocket):
+    def requestHub(self, websocket):
         """
+        Toggle hub status
         If role is available:
-        - Sets source flag to True for player
+        - Sets hub flag to True for player
         If there are enough players, returns True
         Otherwise returns False
         """
-        print(f"{self.playerName(websocket)} has requested source role")
+        print(f"{self.playerName(websocket)} has requested hub role toggle")
         player = self.playerId(websocket)
-        if self.sourceAvailable(player.getTeam()):
-            player.setSource()
+        # is player hub already?
+        if player.isHub():
+            player.setHub(role=False)
             self.enoughPlayers()
-            return True, 'source-accepted'
+            return True, 'hub-off'
+        # player is not hub:
+        elif self.hubAvailable(player.getTeam()):
+            player.setHub()
+            self.enoughPlayers()
+            return True, 'hub-on'
         return False, 'Hub role not available'
 
-    def sourceAvailable(self, team):
+    def hubAvailable(self, team):
         """
-        Returns True if source role is available for specified team
+        Returns True if hub role is available for specified team
         """
         for player in self._players:
-            if player.getTeam() == team and player.isSource():
+            if player.getTeam() == team and player.isHub():
                 return False
         return True
 
@@ -198,13 +212,13 @@ class OrbitalsPlayers:
         """
         print(f"{self.playerName(websocket)} is ready to start")
         if self.enoughPlayers():
-            if self.playerId(websocket).isSource():
+            if self.playerId(websocket).isHub():
                 self.playerId(websocket).setReady(True)
 
             # are both players ready?
             readyCount = 0
             for player in self._players:
-                if player.isSource() and player.isReady():
+                if player.isHub() and player.isReady():
                     readyCount += 1
             print(f"Ready count: {readyCount}")
             if readyCount == 2:
@@ -227,7 +241,7 @@ class OrbitalsPlayers:
                 break
 
         if replayNow:
-            # set status of all non-source players to non-ready
+            # set status of all non-hub players to non-ready
             for player in self._players:
                 player.setReplay(False)
                 player.setReady(False)

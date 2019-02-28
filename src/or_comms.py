@@ -42,7 +42,7 @@ async def publishState(gameInfo, players, users):
             # - if the player has a team and that team doesn't have a root,
             #   allow them to request the root role
             packet['prompt'] = 'Waiting for players'
-            if player.isSource():
+            if player.isHub():
                 packet['entry'] = 'role-selection'
             else:
                 if player.getTeam() == 'B' and not gameInfo['blue-root']:
@@ -51,19 +51,19 @@ async def publishState(gameInfo, players, users):
                     packet['entry'] = 'role-selection'
         elif state == 'waiting-start':
             packet['prompt'] = 'Waiting for game start'
-            if player.isSource():
+            if player.isHub():
                 packet['entry'] = 'ready-area'
                 packet['ready'] = player.isReady()
         elif state == 'game-start':
             packet['prompt'] = 'Study the words'
             packet['showTurn'] = True
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
         elif state == 'hint-submission':
             packet['showTurn'] = True
             packet['prompt'] = 'Waiting for hint'
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
                 if player.getTeam() == turn:
@@ -72,7 +72,7 @@ async def publishState(gameInfo, players, users):
         elif state == 'hint-response':
             packet['showTurn'] = True
             packet['prompt'] = 'Waiting for hint response'
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
                 if player.getTeam() != turn:
@@ -87,10 +87,10 @@ async def publishState(gameInfo, players, users):
             packet['showHint'] = True
             packet['hint'] = gameInfo['hint']['hintWord']
             packet['guesses'] = gameInfo['guesses']
-            if player.getTeam() == turn and not player.isSource():
+            if player.getTeam() == turn and not player.isHub():
                 packet['prompt'] = 'Guess a related word'
                 packet['enableGuesses'] = True
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
         elif state == 'game-over':
@@ -115,10 +115,10 @@ async def publishPlayers(playerData, enough, users):
     sends the list of players (name, team, role, and readiness)
     to everyone (not just players)
     """
-    # print(f"Players connected:\n{'player':16} |  team | source | ready")
+    # print(f"Players connected:\n{'player':16} |  team | hub | ready")
     # for player in players.getPlayers():
     #     print(f"{player.getName():16} |  {player.getTeam():4}",
-    #           f" | {player.isSource():6} | {player.isReady()}")
+    #           f" | {player.isHub():6} | {player.isReady()}")
 
     # build playerData dict
     if users:
@@ -147,7 +147,7 @@ async def publishWords(words, keywords, players):
     keyMsg = json.dumps(keyPacket)
     for player in players:
         await player.getWebSocket().send(msg)
-        if player.isSource():
+        if player.isHub():
             await player.getWebSocket().send(keyMsg)
 
 async def publishGuess(guess, players):
@@ -169,7 +169,7 @@ async def publishGuess(guess, players):
         await player.getWebSocket().send(msg)
 
 async def publishMessage(message, players):
-    """ publishes chat message from non-source player """
+    """ publishes chat message from non-hub player """
     packet = {'type': 'msg', 'sender': message['msgSender'],
               'team': message['msgTeam'], 'msg': message['msg']}
     msg = json.dumps(packet)

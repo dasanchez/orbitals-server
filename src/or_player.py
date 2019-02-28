@@ -15,7 +15,7 @@ class OrbitalsPlayer:
     def __init__(self, name):
         self._name = name
         self._team = 'N'
-        self._source = False
+        self._hub = False
         self._ready = False
         self._replay = False
         self._websocket = None
@@ -41,11 +41,11 @@ class OrbitalsPlayer:
     def getTeam(self):
         return self._team
 
-    def setSource(self):
-        self._source = True
+    def setHub(self, role = True):
+        self._hub = role
 
-    def isSource(self):
-        return self._source
+    def isHub(self):
+        return self._hub
 
     def setReady(self, ready):
         self._ready = ready

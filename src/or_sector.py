@@ -44,8 +44,8 @@ class OrbitalsSector:
             await self.newPlayer(data['name'], websocket)
         elif data['type'] == 'team-request':
             await self.teamRequest(websocket, data['team'])
-        elif data['type'] == 'source-request':
-            await self.sourceRequest(websocket)
+        elif data['type'] == 'hub-request':
+            await self.hubRequest(websocket)
         elif data['type'] == 'ready':
             await self.startRequest(websocket)
         elif data['type'] == 'message':
@@ -139,57 +139,58 @@ class OrbitalsSector:
         
     async def teamRequest(self, websocket, team):
         """ assigns player to requested team """
-        success, response = self._players.joinTeam(websocket, team)
-        if success:
-            player = self._players.playerId(websocket)
-            packet = {'type': 'response', 'msg': response, "team": team}
-            msg = json.dumps(packet)
-            await websocket.send(msg)
-            if self._players.enoughPlayers():
-                if self._gameInfo['state'] == 'waiting-players':
-                    self._gameInfo['state'] = 'waiting-start'
-            await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
-            await orbComms.publishPlayers(self._players.getPlayerData(),
+        player = self._players.playerId(websocket)
+        if player.getTeam() is not team:
+            success, response = self._players.joinTeam(websocket, team)
+            if success:
+                packet = {'type': 'response', 'msg': response, "team": team}
+                msg = json.dumps(packet)
+                await websocket.send(msg)
+                if self._players.enoughPlayers():
+                    if self._gameInfo['state'] == 'waiting-players':
+                        self._gameInfo['state'] = 'waiting-start'
+                await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
+                await orbComms.publishPlayers(self._players.getPlayerData(),
                                           self._players.enoughPlayers(), self._users)
-            teamString = 'N'
-            if player.getTeam() == 'O':
-                teamString = 'ORANGE'
-            elif player.getTeam() == 'B':
-                teamString = 'BLUE'
-            messageDict = {'msg': f'[JOINED TEAM {teamString}]', 'msgSender': player.getName(),
-                           'msgTeam': player.getTeam()}
-            await orbComms.publishMessage(messageDict, self._players.getPlayers())
-        else:
-            packet = {'type': 'response', 'msg': 'team-rejected', "reason": response}
-            msg = json.dumps(packet)
-            await websocket.send(msg)
+                teamString = 'N'
+                if player.getTeam() == 'O':
+                    teamString = 'ORANGE'
+                elif player.getTeam() == 'B':
+                    teamString = 'BLUE'
+                messageDict = {'msg': f'[JOINED TEAM {teamString}]', 'msgSender': player.getName(),
+                               'msgTeam': player.getTeam()}
+                await orbComms.publishMessage(messageDict, self._players.getPlayers())
+            else:
+                packet = {'type': 'response', 'msg': 'team-rejected', "reason": response}
+                msg = json.dumps(packet)
+                await websocket.send(msg)
 
-    async def sourceRequest(self, websocket):
+    async def hubRequest(self, websocket):
         """
-        tries to assign source role to player
+        tries to assign hub role to player
         """
-        success, response = self._players.requestSource(websocket)
+        success, response = self._players.requestHub(websocket)
         team = self._players.playerId(websocket).getTeam()
         if success:
             player = self._players.playerId(websocket)
             packet = {'type': 'response', 'msg': response, 'team': team}
             msg = json.dumps(packet)
             await websocket.send(msg)
-            if team == 'O':
-                self._gameInfo['orange-root'] = True
-            elif team == 'B':
-                self._gameInfo['blue-root'] = True
+            self._gameInfo['orange-root'] = self._players.haveOrangeRoot()
+            self._gameInfo['blue-root'] = self._players.haveBlueRoot()
             if self._players.enoughPlayers():
                 if self._gameInfo['state'] == 'waiting-players':
                     self._gameInfo['state'] = 'waiting-start'
+            else:
+                self._gameInfo['state'] = 'waiting-players'
             await orbComms.publishPlayers(self._players.getPlayerData(),
                                           self._players.enoughPlayers(), self._users)
             await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
-            messageDict = {'msg': f'[PLAYING AS HUB]', 'msgSender': player.getName(),
+            messageDict = {'msg': f'[ROLE CHANGED]', 'msgSender': player.getName(),
                            'msgTeam': player.getTeam()}
             await orbComms.publishMessage(messageDict, self._players.getPlayers())
         else:
-            packet = {'type': 'response', 'msg': 'source-rejected', 'reason': response}
+            packet = {'type': 'response', 'msg': 'hub-rejected', 'reason': response}
             msg = json.dumps(packet)
             await websocket.send(msg)
 
@@ -219,7 +220,7 @@ class OrbitalsSector:
         self._orbTimer.stop()
 
         player = self._players.playerId(websocket)
-        if player.getTeam() == self._gameInfo['turn'] and player.isSource():
+        if player.getTeam() == self._gameInfo['turn'] and player.isHub():
             # Limit guess count to 4
             if count > 4:
                 count = 4
@@ -247,7 +248,7 @@ class OrbitalsSector:
         """ process hint approval / rejection """
         # respond to hint:
         player = self._players.playerId(websocket)
-        if player.getTeam() != self._gameInfo['turn'] and player.isSource():
+        if player.getTeam() != self._gameInfo['turn'] and player.isHub():
             if response:
                 self._gameInfo['state'] = 'guess-submission'
                 print(f"Hint has been approved.")
@@ -269,12 +270,12 @@ class OrbitalsSector:
             print(f"{name} is not allowed to respond to hints at this point.")
 
     async def processGuess(self, websocket, guess):
-        """ publishes guess from non-source players """
+        """ publishes guess from non-hub players """
         # need to check that the right team is submitting guesses!
         player = self._players.playerId(websocket)
         currentTurn = self._gameInfo['turn']
-        # is the guesser in the right team and not a source?
-        if player.getTeam() == currentTurn and not player.isSource():
+        # is the guesser in the right team and not a hub?
+        if player.getTeam() == currentTurn and not player.isHub():
             # update words
             response = self._gameWords.newGuess(guess, currentTurn)
             print(response)
@@ -325,12 +326,12 @@ class OrbitalsSector:
         if the state is 'game-over':
         - all players can send messages
         if the state is not 'game-over':
-        - only non-source players can send messages
+        - only non-hub players can send messages
         """
         player = self._players.playerId(websocket)
         state = self._gameInfo['state']
         if player:
-            if not player.isSource() or state == 'waiting-players' or state == 'waiting-start' or state == 'game-over':
+            if not player.isHub() or state == 'waiting-players' or state == 'waiting-start' or state == 'game-over':
                 messageDict = {'msg': message, 'msgSender': player.getName(),
                                'msgTeam': player.getTeam()}
                 await orbComms.publishMessage(messageDict, self._players.getPlayers())

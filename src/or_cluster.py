@@ -156,7 +156,7 @@ class OrbitalsCluster:
                 sector = self._userSectors[websocket]
                 await sector.newMessage(websocket,data)
 
-                if data['type'] == 'team-request' or data['type'] == 'source-request':
+                if data['type'] == 'team-request' or data['type'] == 'hub-request':
                     await self.publishClusterStatus()
 
     async def publishClusterStatus(self):
