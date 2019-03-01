@@ -39,16 +39,20 @@ async def publishState(gameInfo, players, users):
             # If we are waiting for players:
             # - everyone should have a name by now
             # - asking for a team should be the default
-            # - if the player has a team and that team doesn't have a root,
-            #   allow them to request the root role
+            # - if the player has a team and that team doesn't have a hub,
+            #   allow them to request the hub role
             packet['prompt'] = 'Waiting for players'
             if player.isHub():
                 packet['entry'] = 'role-selection'
+                packet['hub'] = True
             else:
-                if player.getTeam() == 'B' and not gameInfo['blue-root']:
+                packet['hub'] = False
+                print(f"gameInfo: {gameInfo}")
+                if player.getTeam() == 'B' and not gameInfo['blue-hub']:
                     packet['entry'] = 'role-selection'
-                if player.getTeam() == 'O' and not gameInfo['orange-root']:
+                if player.getTeam() == 'O' and not gameInfo['orange-hub']:
                     packet['entry'] = 'role-selection'
+
         elif state == 'waiting-start':
             packet['prompt'] = 'Waiting for game start'
             if player.isHub():

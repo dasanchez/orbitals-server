@@ -27,8 +27,8 @@ class OrbitalsSector:
                           'turn': 'N',
                           'guesses': 0,
                           'winner': '',
-                          'orange-root': False,
-                          'blue-root': False,
+                          'orange-hub': False,
+                          'blue-hub': False,
                           'enough-players': False}
         self._users = set()
         self._gameWords = OrbitalsWords(wordCount)
@@ -96,8 +96,8 @@ class OrbitalsSector:
             self._gameInfo['state'] = 'waiting-players'
             self._orbTimer.stop()
 
-        self._gameInfo['blue-root'] = self._players.haveBlueRoot()
-        self._gameInfo['orange-root'] = self._players.haveOrangeRoot()
+        self._gameInfo['blue-hub'] = self._players.haveBlueHub()
+        self._gameInfo['orange-hub'] = self._players.haveOrangeHub()
         print(f"gameInfo: {self._gameInfo}")
         
         await orbComms.publishMessage(messageDict, self._players.getPlayers())
@@ -146,9 +146,13 @@ class OrbitalsSector:
                 packet = {'type': 'response', 'msg': response, "team": team}
                 msg = json.dumps(packet)
                 await websocket.send(msg)
+                self._gameInfo['orange-hub'] = self._players.haveOrangeHub()
+                self._gameInfo['blue-hub'] = self._players.haveBlueHub()
                 if self._players.enoughPlayers():
                     if self._gameInfo['state'] == 'waiting-players':
                         self._gameInfo['state'] = 'waiting-start'
+                else:
+                    self._gameInfo['state'] = 'waiting-players'
                 await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
                 await orbComms.publishPlayers(self._players.getPlayerData(),
                                           self._players.enoughPlayers(), self._users)
@@ -176,8 +180,8 @@ class OrbitalsSector:
             packet = {'type': 'response', 'msg': response, 'team': team}
             msg = json.dumps(packet)
             await websocket.send(msg)
-            self._gameInfo['orange-root'] = self._players.haveOrangeRoot()
-            self._gameInfo['blue-root'] = self._players.haveBlueRoot()
+            self._gameInfo['orange-hub'] = self._players.haveOrangeHub()
+            self._gameInfo['blue-hub'] = self._players.haveBlueHub()
             if self._players.enoughPlayers():
                 if self._gameInfo['state'] == 'waiting-players':
                     self._gameInfo['state'] = 'waiting-start'
@@ -409,8 +413,8 @@ class OrbitalsSector:
         # populate sector dictionary
         sectorDetails['name'] = self._sectorName
         sectorDetails['symbol'] = self._sectorSymbol
-        sectorDetails['orangeHub'] = self._players.haveOrangeRoot()
-        sectorDetails['blueHub'] = self._players.haveBlueRoot()
+        sectorDetails['orangeHub'] = self._players.haveOrangeHub()
+        sectorDetails['blueHub'] = self._players.haveBlueHub()
         orangeOrbitals = self._players.getOrangeTeamCount()
         blueOrbitals = self._players.getBlueTeamCount()
         if sectorDetails['orangeHub']:

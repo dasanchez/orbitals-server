@@ -138,7 +138,7 @@ class OrbitalsCluster:
                 await playerSector.deleteConnection(websocket)
 
                 # send message to user to notify they are sector-less
-                sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
+                sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['symbol'])
                 packet = {}
                 packet['type'] = 'response'
                 packet['msg'] = 'left-sector'
@@ -161,7 +161,7 @@ class OrbitalsCluster:
 
     async def publishClusterStatus(self):
         # publish update to all users with no sectors:
-        sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['name'])
+        sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['symbol'])
         packet = {'type': 'sectors',
                   'sectors': sectors}
         msg = json.dumps(packet)

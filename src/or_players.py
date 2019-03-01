@@ -9,8 +9,8 @@ class OrbitalsPlayers:
     def __init__(self):
         self._players = set()
         self._enoughPlayers = False
-        self._blueRoot = False
-        self._orangeRoot = False
+        self._blueHub = False
+        self._orangeHub = False
         self._blueTeam = 0
         self._orangeTeam = 0
 
@@ -26,7 +26,7 @@ class OrbitalsPlayers:
         for player in self._players:
             playerData.append({'name': player.getName(),
                                'team': player.getTeam(),
-                               'src': player.isHub(),
+                               'hub': player.isHub(),
                                'ready': player.isReady()})
         return playerData
 
@@ -92,8 +92,8 @@ class OrbitalsPlayers:
         Returns true if there is at least one hub and one player per team,
         false otherwise
         """
-        self._blueRoot = False
-        self._orangeRoot = False
+        self._blueHub = False
+        self._orangeHub = False
         self._blueTeam = 0
         self._orangeTeam = 0
         oPlayers = bPlayers = oHub = bHub = False
@@ -101,17 +101,17 @@ class OrbitalsPlayers:
             if player.getTeam() == 'B':
                 self._blueTeam += 1
                 if player.isHub():
-                    # print(f"player {player.getName()} is hub!")
+                    print(f"player {player.getName()} is hub!")
                     bHub = True
-                    self._blueRoot = True
+                    self._blueHub = True
                 else:
                     bPlayers = True
             elif player.getTeam() == 'O':
                 self._orangeTeam += 1
                 if player.isHub():
-                    # print(f"player {player.getName()} is hub!")
+                    print(f"player {player.getName()} is hub!")
                     oHub = True
-                    self._orangeRoot = True
+                    self._orangeHub = True
                 else:
                     oPlayers = True
         requiredList = [oPlayers, bPlayers, oHub, bHub]
@@ -127,11 +127,11 @@ class OrbitalsPlayers:
                 return player.getName()
         return None
 
-    def haveBlueRoot(self):
-        return self._blueRoot
+    def haveBlueHub(self):
+        return self._blueHub
 
-    def haveOrangeRoot(self):
-        return self._orangeRoot
+    def haveOrangeHub(self):
+        return self._orangeHub
 
     def playerId(self, websocket):
         """ Returns player object """
@@ -147,11 +147,12 @@ class OrbitalsPlayers:
         - Return True
         Otherwise return False
         """
-        print(f"{self.playerName(websocket)} has requested team {team}")
         player = self.playerId(websocket)
+        print(f"{player.getName()} has requested team {team}")
         
-        if player.isHub():
-            player.setHub(role = False)
+        player.setHub(role = False)
+        player.setReady(False)
+        # print(f"hub: {player.isHub()}")
         if team == 'O':
             if self._orangeTeam < 4:
                 player.setTeam(team)
