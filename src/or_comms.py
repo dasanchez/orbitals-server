@@ -31,7 +31,6 @@ async def publishState(gameInfo, players, users):
     # send a custom state array to all connected players
     for player in players:
         packet['name'] = player.getName()
-        packet['entry'] = 'team-selection'
         packet['showHint'] = False
         packet['updateComms'] = False
         packet['enableGuesses'] = False
@@ -39,31 +38,37 @@ async def publishState(gameInfo, players, users):
             # If we are waiting for players:
             # - everyone should have a name by now
             # - asking for a team should be the default
-            # - if the player has a team and that team doesn't have a root,
-            #   allow them to request the root role
+            # - if the player has a team and that team doesn't have a hub,
+            #   allow them to request the hub role
+            packet['entry'] = 'team-selection'
             packet['prompt'] = 'Waiting for players'
-            if player.isSource():
+            if player.isHub():
                 packet['entry'] = 'role-selection'
+                packet['hub'] = True
             else:
-                if player.getTeam() == 'B' and not gameInfo['blue-root']:
+                packet['hub'] = False
+                print(f"gameInfo: {gameInfo}")
+                if player.getTeam() == 'B' and not gameInfo['blue-hub']:
                     packet['entry'] = 'role-selection'
-                if player.getTeam() == 'O' and not gameInfo['orange-root']:
+                if player.getTeam() == 'O' and not gameInfo['orange-hub']:
                     packet['entry'] = 'role-selection'
+
         elif state == 'waiting-start':
+            packet['entry'] = 'team-selection'
             packet['prompt'] = 'Waiting for game start'
-            if player.isSource():
+            if player.isHub():
                 packet['entry'] = 'ready-area'
                 packet['ready'] = player.isReady()
         elif state == 'game-start':
             packet['prompt'] = 'Study the words'
             packet['showTurn'] = True
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
         elif state == 'hint-submission':
             packet['showTurn'] = True
             packet['prompt'] = 'Waiting for hint'
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
                 if player.getTeam() == turn:
@@ -72,7 +77,7 @@ async def publishState(gameInfo, players, users):
         elif state == 'hint-response':
             packet['showTurn'] = True
             packet['prompt'] = 'Waiting for hint response'
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
                 if player.getTeam() != turn:
@@ -87,10 +92,10 @@ async def publishState(gameInfo, players, users):
             packet['showHint'] = True
             packet['hint'] = gameInfo['hint']['hintWord']
             packet['guesses'] = gameInfo['guesses']
-            if player.getTeam() == turn and not player.isSource():
+            if player.getTeam() == turn and not player.isHub():
                 packet['prompt'] = 'Guess a related word'
                 packet['enableGuesses'] = True
-            if player.isSource():
+            if player.isHub():
                 packet['updateComms'] = True
                 packet['comms'] = ''
         elif state == 'game-over':
@@ -115,10 +120,10 @@ async def publishPlayers(playerData, enough, users):
     sends the list of players (name, team, role, and readiness)
     to everyone (not just players)
     """
-    # print(f"Players connected:\n{'player':16} |  team | source | ready")
+    # print(f"Players connected:\n{'player':16} |  team | hub | ready")
     # for player in players.getPlayers():
     #     print(f"{player.getName():16} |  {player.getTeam():4}",
-    #           f" | {player.isSource():6} | {player.isReady()}")
+    #           f" | {player.isHub():6} | {player.isReady()}")
 
     # build playerData dict
     if users:
@@ -147,7 +152,7 @@ async def publishWords(words, keywords, players):
     keyMsg = json.dumps(keyPacket)
     for player in players:
         await player.getWebSocket().send(msg)
-        if player.isSource():
+        if player.isHub():
             await player.getWebSocket().send(keyMsg)
 
 async def publishGuess(guess, players):
@@ -169,7 +174,7 @@ async def publishGuess(guess, players):
         await player.getWebSocket().send(msg)
 
 async def publishMessage(message, players):
-    """ publishes chat message from non-source player """
+    """ publishes chat message from non-hub player """
     packet = {'type': 'msg', 'sender': message['msgSender'],
               'team': message['msgTeam'], 'msg': message['msg']}
     msg = json.dumps(packet)

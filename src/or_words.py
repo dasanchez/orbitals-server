@@ -32,7 +32,7 @@ class OrbitalsWords:
         tempDeck = list(self._fullDeck)
         for _ in range(self._wordCount):
             print(f"deck has {len(tempDeck)} words")
-            pick = random.randint(0, len(tempDeck))
+            pick = random.randint(0, len(tempDeck)-1)
             print(f"pick: {pick}")
             self._orbWords[tempDeck[pick]] = 'N'
             self._openedWords[tempDeck[pick]] = '-'
