@@ -31,7 +31,6 @@ async def publishState(gameInfo, players, users):
     # send a custom state array to all connected players
     for player in players:
         packet['name'] = player.getName()
-        packet['entry'] = 'team-selection'
         packet['showHint'] = False
         packet['updateComms'] = False
         packet['enableGuesses'] = False
@@ -41,6 +40,7 @@ async def publishState(gameInfo, players, users):
             # - asking for a team should be the default
             # - if the player has a team and that team doesn't have a hub,
             #   allow them to request the hub role
+            packet['entry'] = 'team-selection'
             packet['prompt'] = 'Waiting for players'
             if player.isHub():
                 packet['entry'] = 'role-selection'
@@ -54,6 +54,7 @@ async def publishState(gameInfo, players, users):
                     packet['entry'] = 'role-selection'
 
         elif state == 'waiting-start':
+            packet['entry'] = 'team-selection'
             packet['prompt'] = 'Waiting for game start'
             if player.isHub():
                 packet['entry'] = 'ready-area'
