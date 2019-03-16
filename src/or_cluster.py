@@ -160,11 +160,11 @@ class OrbitalsCluster:
                     await self.publishClusterStatus()
 
     async def publishClusterStatus(self):
-        # publish update to all users with no sectors:
+        # publish update to all users with names and no sectors:
         sectors = sorted(list(self.getClusterStatus()), key=lambda k:k['symbol'])
         packet = {'type': 'sectors',
                   'sectors': sectors}
         msg = json.dumps(packet)
         for user in self._userSectors.keys():
-            if not self._userSectors[user]:
+            if self._userNames.get(user) and not self._userSectors[user]:
                 await user.send(msg)
