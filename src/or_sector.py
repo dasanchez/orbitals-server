@@ -151,34 +151,36 @@ class OrbitalsSector:
     async def teamRequest(self, websocket, team):
         """ assigns player to requested team """
         player = self._players.playerId(websocket)
-        if player.getTeam() is not team:
-            success, response = self._players.joinTeam(websocket, team)
-            if success:
-                packet = {'type': 'response', 'msg': response, "team": team}
-                msg = json.dumps(packet)
-                await websocket.send(msg)
-                self._gameInfo['orange-hub'] = self._players.haveOrangeHub()
-                self._gameInfo['blue-hub'] = self._players.haveBlueHub()
-                if self._players.enoughPlayers():
-                    if self._gameInfo['state'] == 'waiting-players':
-                        self._gameInfo['state'] = 'waiting-start'
+        current_state = self._gameInfo['state']
+        if current_state == 'waiting-players' or current_state == ['waiting-start'] or current_state == ['game-over']:
+            if player.getTeam() is not team:
+                success, response = self._players.joinTeam(websocket, team)
+                if success:
+                    packet = {'type': 'response', 'msg': response, "team": team}
+                    msg = json.dumps(packet)
+                    await websocket.send(msg)
+                    self._gameInfo['orange-hub'] = self._players.haveOrangeHub()
+                    self._gameInfo['blue-hub'] = self._players.haveBlueHub()
+                    if self._players.enoughPlayers():
+                        if self._gameInfo['state'] == 'waiting-players':
+                            self._gameInfo['state'] = 'waiting-start'
+                    else:
+                        self._gameInfo['state'] = 'waiting-players'
+                    await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
+                    await orbComms.publishPlayers(self._players.getPlayerData(),
+                                                  self._players.enoughPlayers(), self._users)
+                    teamString = 'N'
+                    if player.getTeam() == 'O':
+                        teamString = 'ORANGE'
+                    elif player.getTeam() == 'B':
+                        teamString = 'BLUE'
+                    messageDict = {'msg': f'[JOINED TEAM {teamString}]', 'msgSender': player.getName(),
+                                   'msgTeam': player.getTeam()}
+                    await orbComms.publishMessage(messageDict, self._players.getPlayers())
                 else:
-                    self._gameInfo['state'] = 'waiting-players'
-                await orbComms.publishState(self._gameInfo, self._players.getPlayers(), self._users)
-                await orbComms.publishPlayers(self._players.getPlayerData(),
-                                          self._players.enoughPlayers(), self._users)
-                teamString = 'N'
-                if player.getTeam() == 'O':
-                    teamString = 'ORANGE'
-                elif player.getTeam() == 'B':
-                    teamString = 'BLUE'
-                messageDict = {'msg': f'[JOINED TEAM {teamString}]', 'msgSender': player.getName(),
-                               'msgTeam': player.getTeam()}
-                await orbComms.publishMessage(messageDict, self._players.getPlayers())
-            else:
-                packet = {'type': 'response', 'msg': 'team-rejected', "reason": response}
-                msg = json.dumps(packet)
-                await websocket.send(msg)
+                    packet = {'type': 'response', 'msg': 'team-rejected', "reason": response}
+                    msg = json.dumps(packet)
+                    await websocket.send(msg)
 
     async def hubRequest(self, websocket):
         """
