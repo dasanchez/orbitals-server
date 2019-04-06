@@ -101,7 +101,7 @@ class OrbitalsPlayers:
             if player.getTeam() == 'B':
                 self._blueTeam += 1
                 if player.isHub():
-                    print(f"player {player.getName()} is hub!")
+                    # print(f"player {player.getName()} is hub!")
                     bHub = True
                     self._blueHub = True
                 else:
@@ -109,7 +109,7 @@ class OrbitalsPlayers:
             elif player.getTeam() == 'O':
                 self._orangeTeam += 1
                 if player.isHub():
-                    print(f"player {player.getName()} is hub!")
+                    # print(f"player {player.getName()} is hub!")
                     oHub = True
                     self._orangeHub = True
                 else:
@@ -237,7 +237,8 @@ class OrbitalsPlayers:
         replayNow = True
 
         for player in self._players:
-            if not player.wantsReplay():
+            team = player.getTeam()
+            if (team == 'B' or team == 'O') and not player.wantsReplay():
                 replayNow = False
                 break
 

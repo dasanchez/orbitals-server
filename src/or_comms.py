@@ -6,7 +6,7 @@ import asyncio
 import json
 
 
-async def publishState(gameInfo, players, users):
+async def publishState(gameInfo, players):
     """
     publishes the game state and current turn to all players:
     - adds the hint and remaining guesses if state is 'waiting guess'
@@ -27,6 +27,7 @@ async def publishState(gameInfo, players, users):
     packet['state'] = state
     packet['showTurn'] = False
     packet['turn'] = turn
+    packet['entry'] = 'view-only'
 
     # send a custom state array to all connected players
     for player in players:
@@ -104,12 +105,15 @@ async def publishState(gameInfo, players, users):
             elif gameInfo['winner'] == 'B':
                 winner = 'Blue'
             packet['prompt'] = 'Team ' + winner + ' wins!'
-            if not player.wantsReplay():
-                packet['updateComms'] = True
-                packet['comms'] = 'replay'
+            if player.getTeam() == 'B' or player.getTeam() == 'O':
+                if not player.wantsReplay():
+                    packet['updateComms'] = True
+                    packet['comms'] = 'replay'
+                else:
+                    packet['updateComms'] = True
+                    packet['comms'] = 'message'
             else:
-                packet['updateComms'] = True
-                packet['comms'] = 'message'
+                packet['entry'] = 'team-selection'
 
         print(f"Packet: {packet}")
         msg = json.dumps(packet)
