@@ -18,7 +18,6 @@ class OrbitalsCluster:
     def __init__(self, sectorCount = 4):
         # initialize set of quadrants
         self._sectors = set()
-        # self._users = set()
         self._userSectors = dict()
         self._sectorDict = dict()
         self._userNames = dict()
@@ -52,14 +51,10 @@ class OrbitalsCluster:
         """ register player """
         print("New user connected")
 
-        # self._users.add(websocket)
         self._userSectors[websocket] = None
-
         packet = {}
         packet['type'] = 'welcome'
         packet['prompt'] = 'Enter your name'
-        # packet['type'] = 'sectors'
-        # packet['sectors'] = sectors
         msg = json.dumps(packet)
         await websocket.send(msg)
 

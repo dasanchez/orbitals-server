@@ -119,20 +119,6 @@ class OrbitalsSector:
         playerId = self._players.playerId(websocket)
 
         gameState = self._gameInfo['state']
-        # packet = {'type': 'state', 'state': gameState,
-        #           'turn': self._gameInfo['turn'],
-        #           'entry': 'team-selection',
-        #           'sector': self._sectorName,
-        #           'prompt': 'Waiting for players'}
-        # if gameState == 'guess-submission':
-        #     packet['hint'] = self._gameInfo['hint']['hintWord']
-        #     packet['guesses'] = self._gameInfo['guesses']
-        # elif gameState == 'game-over':
-        #     packet['winner'] = self._gameInfo['winner']
-
-        # msg = json.dumps(packet)
-        # await websocket.send(msg)
-
         await orbComms.publishState(self._gameInfo, [playerId])
 
         player = self._players.playerId(websocket)
@@ -143,7 +129,6 @@ class OrbitalsSector:
         await orbComms.publishMessage(messageDict, self._players.getPlayers())
 
         # has the game started  already?
-
         if (gameState == 'hint-submission' or gameState == 'hint-response'
            or gameState == 'guess-submission' or gameState == 'game-start'):
             # Send word info
