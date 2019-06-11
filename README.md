@@ -10,7 +10,7 @@ The server is built with Python 3.6 and the [websockets](https://websockets.read
 
 ## Usage
 
-In order to start the server, run:
+To start the server, run:
 
 ```
 python or_server.py
@@ -18,12 +18,10 @@ python or_server.py
 
 ### Options
 
-`-p [x]`  
-`--port [x]`
+`-p [x]` or `--port [x]`
 
 Listen on port x. Default is 9001.
 
-`-s [full chain] [private key]`  
-`--secure [full chain] [private key]`
+`-s [full chain] [private key]` or `--secure [full chain] [private key]`
 
 Use secure WebSockets.
