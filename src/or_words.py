@@ -143,19 +143,3 @@ class OrbitalsWords:
             return self._bWordsLeft
         return False
 
-    def setSimulationWords(self):
-        """ Utility function for development """
-        self._orbWords = {'APPLE': 'O', 'BEER': 'O', 'CINNAMON': 'N',
-                         'DICE': 'N', 'ELEPHANT': 'B', 'FARM': 'B',
-                         'GRANDMA': 'O', 'HABIT': 'O', 'INDIA': 'O',
-                         'JEEP': 'N', 'KARMA': 'B', 'LIME': 'B',
-                         'MEXICO': 'O', 'NAAN': 'B', 'OWL': 'O',
-                         'PERISCOPE': 'B'}
-        self._openedWords = {'APPLE': '-', 'BEER': '-', 'CINNAMON': '-',
-                             'DICE': '-', 'ELEPHANT': '-', 'FARM': '-',
-                             'GRANDMA': '-', 'HABIT': '-', 'INDIA': '-',
-                             'JEEP': '-', 'KARMA': '-', 'LIME': '-',
-                             'MEXICO': '-', 'NAAN': '-', 'OWL': '-',
-                             'PERISCOPE': '-'}
-        self._bWordsLeft = 6
-        self._oWordsLeft = 7

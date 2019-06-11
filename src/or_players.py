@@ -71,7 +71,7 @@ class OrbitalsPlayers:
         - return False
         Otherwise return True
         """
-        print(f"player {self.playerName(websocket)} has left.")
+        # print(f"player {self.playerName(websocket)} has left.")
         retiredPlayer = None
         for player in self.getPlayers():
             if player.getWebSocket() == websocket:
@@ -79,7 +79,6 @@ class OrbitalsPlayers:
                 break
         if retiredPlayer:
             self._players.remove(retiredPlayer)
-            # del retiredPlayer
 
         if not self.enoughPlayers():
             for player in self.getPlayers():
@@ -101,7 +100,6 @@ class OrbitalsPlayers:
             if player.getTeam() == 'B':
                 self._blueTeam += 1
                 if player.isHub():
-                    print(f"player {player.getName()} is hub!")
                     bHub = True
                     self._blueHub = True
                 else:
@@ -109,7 +107,6 @@ class OrbitalsPlayers:
             elif player.getTeam() == 'O':
                 self._orangeTeam += 1
                 if player.isHub():
-                    print(f"player {player.getName()} is hub!")
                     oHub = True
                     self._orangeHub = True
                 else:
@@ -148,11 +145,10 @@ class OrbitalsPlayers:
         Otherwise return False
         """
         player = self.playerId(websocket)
-        print(f"{player.getName()} has requested team {team}")
+        # print(f"{player.getName()} has requested team {team}")
         
         player.setHub(role = False)
         player.setReady(False)
-        # print(f"hub: {player.isHub()}")
         if team == 'O':
             if self._orangeTeam < 4:
                 player.setTeam(team)
@@ -183,7 +179,7 @@ class OrbitalsPlayers:
         If there are enough players, returns True
         Otherwise returns False
         """
-        print(f"{self.playerName(websocket)} has requested hub role toggle")
+        # print(f"{self.playerName(websocket)} has requested hub role toggle")
         player = self.playerId(websocket)
         # is player hub already?
         if player.isHub():
@@ -211,7 +207,7 @@ class OrbitalsPlayers:
         Returns True if if both teams are ready to start
         Returns False otherwise
         """
-        print(f"{self.playerName(websocket)} is ready to start")
+        # print(f"{self.playerName(websocket)} is ready to start")
         if self.enoughPlayers():
             if self.playerId(websocket).isHub():
                 self.playerId(websocket).setReady(True)
@@ -221,7 +217,7 @@ class OrbitalsPlayers:
             for player in self._players:
                 if player.isHub() and player.isReady():
                     readyCount += 1
-            print(f"Ready count: {readyCount}")
+            # print(f"Ready count: {readyCount}")
             if readyCount == 2:
                 return True
         return False
@@ -237,7 +233,8 @@ class OrbitalsPlayers:
         replayNow = True
 
         for player in self._players:
-            if not player.wantsReplay():
+            team = player.getTeam()
+            if (team == 'B' or team == 'O') and not player.wantsReplay():
                 replayNow = False
                 break
 

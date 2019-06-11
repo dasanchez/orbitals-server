@@ -6,7 +6,7 @@ import asyncio
 import json
 
 
-async def publishState(gameInfo, players, users):
+async def publishState(gameInfo, players):
     """
     publishes the game state and current turn to all players:
     - adds the hint and remaining guesses if state is 'waiting guess'
@@ -27,6 +27,7 @@ async def publishState(gameInfo, players, users):
     packet['state'] = state
     packet['showTurn'] = False
     packet['turn'] = turn
+    packet['entry'] = 'view-only'
 
     # send a custom state array to all connected players
     for player in players:
@@ -47,7 +48,7 @@ async def publishState(gameInfo, players, users):
                 packet['hub'] = True
             else:
                 packet['hub'] = False
-                print(f"gameInfo: {gameInfo}")
+                # print(f"gameInfo: {gameInfo}")
                 if player.getTeam() == 'B' and not gameInfo['blue-hub']:
                     packet['entry'] = 'role-selection'
                 if player.getTeam() == 'O' and not gameInfo['orange-hub']:
@@ -104,14 +105,17 @@ async def publishState(gameInfo, players, users):
             elif gameInfo['winner'] == 'B':
                 winner = 'Blue'
             packet['prompt'] = 'Team ' + winner + ' wins!'
-            if not player.wantsReplay():
-                packet['updateComms'] = True
-                packet['comms'] = 'replay'
+            if player.getTeam() == 'B' or player.getTeam() == 'O':
+                if not player.wantsReplay():
+                    packet['updateComms'] = True
+                    packet['comms'] = 'replay'
+                else:
+                    packet['updateComms'] = True
+                    packet['comms'] = 'message'
             else:
-                packet['updateComms'] = True
-                packet['comms'] = 'message'
+                packet['entry'] = 'team-selection'
 
-        print(f"Packet: {packet}")
+        # print(f"Packet: {packet}")
         msg = json.dumps(packet)
         await player.getWebSocket().send(msg)
 
@@ -120,17 +124,12 @@ async def publishPlayers(playerData, enough, users):
     sends the list of players (name, team, role, and readiness)
     to everyone (not just players)
     """
-    # print(f"Players connected:\n{'player':16} |  team | hub | ready")
-    # for player in players.getPlayers():
-    #     print(f"{player.getName():16} |  {player.getTeam():4}",
-    #           f" | {player.isHub():6} | {player.isReady()}")
-
     # build playerData dict
     if users:
         packet = {'type': 'players', 'players': playerData,
                   'enough': enough}
         msg = json.dumps(packet)
-        print(f"Sending message: {str(packet)}")
+        # print(f"Sending message: {str(packet)}")
         await asyncio.wait([user.send(msg) for user in users])
 
 
@@ -144,8 +143,8 @@ async def publishTime(seconds, players):
 
 async def publishWords(words, keywords, players):
     """ publish all public words to all players """
-    print(f"Words: {str(words)}")
-    print(f"Key: {str(keywords)}")
+    # print(f"Words: {str(words)}")
+    # print(f"Key: {str(keywords)}")
     packet = {'type': 'words', 'words': words}
     keyPacket = {'type': 'keys', 'keywords': keywords}
     msg = json.dumps(packet)
@@ -164,8 +163,8 @@ async def publishGuess(guess, players):
     guesser = guess['guesser']
     guesserTeam = guess['guesserTeam']
 
-    print(f"Guessed word: {word}, wordTeam: {wordTeam}, "
-          f"guesser: {guesser}, guesserTeam: {guesserTeam}")
+    # print(f"Guessed word: {word}, wordTeam: {wordTeam}, "
+    #       f"guesser: {guesser}, guesserTeam: {guesserTeam}")
     packet = {'type': 'guess', 'word': word, 'wordTeam': wordTeam,
               'guesser': guesser, 'guesserTeam': guesserTeam,
               'guesses': int(guess['guessesLeft'])}

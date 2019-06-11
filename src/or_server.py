@@ -22,7 +22,6 @@ def main(args):
     port = args.port
     print(f"Opening websocket server on port {port}...")
     
-    # bound_handler = functools.partial(handler, args)
     bound_handler = functools.partial(handler)
     # Set up async routines
     loop = asyncio.get_event_loop()
