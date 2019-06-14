@@ -7,7 +7,7 @@ Try a live demo at [urra.ca](https://urra.ca/orbitals/)!
 ## Requirements
 
 - Python >= 3.6 
-- [websockets](https://websockets.readthedocs.io/en/stable/) library.
+- [WebSockets](https://websockets.readthedocs.io/en/stable/) library.
 
 ## Usage
 
