@@ -4,9 +4,10 @@ This is the WebSockets server for the Orbitals game.
 
 Try a live demo at [urra.ca](https://urra.ca/orbitals/)!
 
-## Dependencies
+## Requirements
 
-The server is built with Python 3.6 and the [websockets](https://websockets.readthedocs.io/en/stable/) library.
+- Python >= 3.6 
+- [websockets](https://websockets.readthedocs.io/en/stable/) library.
 
 ## Usage
 
