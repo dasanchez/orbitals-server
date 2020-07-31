@@ -19,6 +19,7 @@ def main(args):
     print("Sectors:")
     pprint(orCluster.getClusterStatus())
 
+    print(args)
     port = args.port
     print(f"Opening websocket server on port {port}...")
     
@@ -72,7 +73,11 @@ if __name__ == "__main__":
                         default=9001)
     parser.add_argument("-s", "--secure",
                         help="use secure websockets: [full-chain] [private-key]",
-                        nargs=2)
+                        nargs=2,
+                        default=False)
+    parser.add_argument("-t", "--test",
+                        help="use test deck",
+                        default=False)
     parser.add_argument("-v", "--verbose",
                         help="show progress", action="store_true")
     para = parser.parse_args()
