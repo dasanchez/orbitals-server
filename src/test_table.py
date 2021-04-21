@@ -1,19 +1,18 @@
 import pytest
 from collections import Counter
 from orbitals_table import OrbitalsTable, GameState
-from orbitals_board import OrbitalsBoard
 
 @pytest.fixture
 def create_game_and_teams():
     orbitals_board = OrbitalsTable()
-    orbitals_board.newPlayer("Ann")
-    orbitals_board.newPlayer("Bob")
-    orbitals_board.newPlayer("Cary")
-    orbitals_board.newPlayer("Dina")
-    orbitals_board.newPlayer("Elsa")
-    orbitals_board.newPlayer("Finn")
-    orbitals_board.newPlayer("Gina")
-    orbitals_board.newPlayer("Hank")
+    orbitals_board.playerJoins("Ann")
+    orbitals_board.playerJoins("Bob")
+    orbitals_board.playerJoins("Cary")
+    orbitals_board.playerJoins("Dina")
+    orbitals_board.playerJoins("Elsa")
+    orbitals_board.playerJoins("Finn")
+    orbitals_board.playerJoins("Gina")
+    orbitals_board.playerJoins("Hank")
     orbitals_board.teamRequest("Ann", "blue")
     orbitals_board.teamRequest("Bob", "blue")
     orbitals_board.teamRequest("Cary", "blue")
@@ -30,7 +29,7 @@ def test_player_count_limit():
     table = OrbitalsTable(player_limit=10)
     assert table.status()['player_limit'] == 10
     assert table.status()['player_count'] == 0
-    table.newPlayer("Isaac")
+    table.playerJoins("Isaac")
     assert table.status()['spots_available'] == 9
 
 def test_accept_full_teams(create_game_and_teams):
@@ -163,31 +162,64 @@ def test_replay_requests(create_game_and_teams):
     board.replayRequest("Hank")
     assert board.state()[0] == GameState.WAITING_START
 
-def test_random_tileset():
-    board = OrbitalsBoard('assets/or_words.txt')
-    board.generateTiles()
-    tiles1 = board.tiles()
-    board.generateTiles()
-    tiles2 = board.tiles()
-    assert tiles1 != tiles2
+def test_player_leaves_table():
+    table = OrbitalsTable()
+    table.playerJoins("Ann")
+    table.playerLeaves("Ann")
+    assert table.status()["player_count"] == 0
 
-def test_random_tileset_teams():
-    board = OrbitalsBoard('assets/or_words.txt')
-    board.generateTiles()
-    tiles = board._tiles
-    tile_counter = Counter([tile[0] for tile in tiles.values()])
-    assert abs(tile_counter['blue'] - tile_counter['orange']) == 1
+def test_last_no_hub_leaves_waiting_clue(create_game_and_teams):
+    table = create_game_and_teams
+    table.startRequest("Ann")
+    table.startRequest("Elsa")
+    table.playerLeaves("Bob")
+    table.playerLeaves("Cary")
+    table.playerLeaves("Dina")
+    assert table.status()['game_state'] == GameState.WAITING_PLAYERS
+
+def test_last_no_hub_leaves_waiting_guess(create_game_and_teams):
+    table = create_game_and_teams
+    table.startRequest("Ann")
+    table.startRequest("Elsa")
+    table.newClue("Ann", "ALLWORDS", 8)
+    table.playerLeaves("Bob")
+    table.playerLeaves("Cary")
+    table.playerLeaves("Dina")
+    assert table.status()['game_state'] == GameState.WAITING_PLAYERS
+
+def test_start_game_if_conditions_met():
+    table = OrbitalsTable()
+    table.playerJoins("Ann")
+    table.playerJoins("Abe")
+    table.playerJoins("Bea")
+    table.playerJoins("Bob")
+    table.teamRequest("Ann", "blue")
+    table.teamRequest("Abe", "blue")
+    table.teamRequest("Bea", "orange")
+    assert table.startRequest("Ann") == "hub roles are not filled"
+    table.roleRequest("Ann", "hub")
+    assert table.startRequest("Ann") == "hub roles are not filled"
+    table.roleRequest("Bea", "hub")
+    assert table.startRequest("Ann") == "no-hub roles are not filled"
+    table.teamRequest("Bob", "orange")
+    assert table.startRequest("Bob") == "only hub roles can request start"
+    assert not table.startRequest("Ann")
 
 def test_sad_player_limit_reached():
     table = OrbitalsTable(player_limit=6)
-    table.newPlayer("Ann")
-    table.newPlayer("Bob")
-    table.newPlayer("Cat")
-    table.newPlayer("Don")
-    table.newPlayer("Eve")
-    assert table.newPlayer("Fog")
-    assert not table.newPlayer("Gus")
+    table.playerJoins("Ann")
+    table.playerJoins("Bob")
+    table.playerJoins("Cat")
+    table.playerJoins("Don")
+    table.playerJoins("Eve")
+    assert not table.playerJoins("Fog")
+    assert table.playerJoins("Gus") == "player limit has been reached"
 
+def test_sad_player_name_exists():
+    table = OrbitalsTable()
+    table.playerJoins("Ann")
+    assert table.playerJoins("Ann") == "player name exists"
+    
 
 # @pytest.fixture
 # def create_cluster(sectors=sector_quantity):
