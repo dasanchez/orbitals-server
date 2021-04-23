@@ -53,26 +53,17 @@ class OrbitalsTable:
         """
         status = dict()
         status["player_limit"] = self._player_limit
-        status["player_count"] = len(self._players)
-        status["spots_available"] = status["player_limit"]-status["player_count"]
+        status["players"] = self._players
         status["game_state"] = self._game_state
+        status["winner"] = self._winning_team
         status["current_turn"] = self._current_turn
         status["guess_count"] = self._current_guess_count
         status["tiles"] = self.tiles()
-        status["orange_tiles_left"] = self._board.tiles_left(team="orange")
-        status["blue_tiles_left"] = self._board.tiles_left(team="blue")
-        status["players"] = self._players
+        status["tiles_left"] = dict()
+        status["tiles_left"]["orange"] = self._board.tiles_left(team="orange")
+        status["tiles_left"]["blue"] = self._board.tiles_left(team="blue")
 
-        # status["blue_tiles_guessed"] = 
-        # status["blue_tiles_left"] = 
-        # status["orange_tiles_guessed"] = 
-        # status["orange_tiles_left"] =
-        # status["neutral_tiles_guessed"] = 
-        # status["neutral_tiles_left"] = 
         return status
-
-    def state(self):
-        return self._game_state, self._current_turn
 
     def playerJoins(self, name: str):
         if len(self._players) >= self._player_limit:
@@ -83,7 +74,6 @@ class OrbitalsTable:
             return "player name exists"
         else:
             self._players[name] = ["no-team", "no-hub", False]
-            return False
        
     def playerLeaves(self, name: str):
         # check game state
