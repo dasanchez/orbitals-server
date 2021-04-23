@@ -22,6 +22,7 @@ class GameState(Enum):
     WAITING_START = auto()
     WAITING_CLUE = auto()
     WAITING_GUESS = auto()
+    WAITING_APPROVAL = auto()
     GAME_OVER = auto()
 
 
@@ -38,6 +39,7 @@ class OrbitalsTable:
         self._current_clue = ''
         self._current_guess_count = 0
         self._winning_team = ''
+        self._game_history = list()
 
     def status(self):
         """
@@ -55,6 +57,12 @@ class OrbitalsTable:
         status["spots_available"] = status["player_limit"]-status["player_count"]
         status["game_state"] = self._game_state
         status["current_turn"] = self._current_turn
+        status["guess_count"] = self._current_guess_count
+        status["tiles"] = self.tiles()
+        status["orange_tiles_left"] = self._board.tiles_left(team="orange")
+        status["blue_tiles_left"] = self._board.tiles_left(team="blue")
+        status["players"] = self._players
+
         # status["blue_tiles_guessed"] = 
         # status["blue_tiles_left"] = 
         # status["orange_tiles_guessed"] = 
@@ -83,18 +91,23 @@ class OrbitalsTable:
             del self._players[name]
         elif self._game_state == GameState.WAITING_START or\
              self._game_state == GameState.WAITING_CLUE or\
+             self._game_state == GameState.WAITING_APPROVAL or\
              self._game_state == GameState.WAITING_GUESS:
             # get team's no-hubs
-            no_hubs = self.filter_players(team=self.playerTeam(name), role="no-hub")
-            # print(no_hubs)
-            # if only one no hub remains, switch state to WAITING PLAYERS:
-            if len(no_hubs) == 1:
+            no_hubs = self.filter_players(teams=[self.playerTeam(name)], role="no-hub")
+
+            # if only one no-hub remains in the team
+            # or
+            # the player leaving is a hub,
+            # switch state to WAITING PLAYERS and reset game status:
+            if len(no_hubs) == 1 or self._players[name][1] == 'hub':
                 self._game_state = GameState.WAITING_PLAYERS
                 self._winning_team = ''
                 self._current_clue = ''
                 self._current_guess_count = 0
                 for player in self._players.keys():
                     self._players[player][2] = False
+
             del self._players[name]
 
     def playerTeam(self, name: str):
@@ -119,10 +132,10 @@ class OrbitalsTable:
         # check game state
         if self._game_state == GameState.WAITING_PLAYERS:
             # do we have one hub for both teams?
-            blue_hub = self.filter_players(team="blue", role="hub")
-            blue_no_hubs = self.filter_players(team="blue", role="no-hub")
-            orange_hub = self.filter_players(team="orange", role="hub")
-            orange_no_hubs = self.filter_players(team="orange", role="no-hub")
+            blue_hub = self.filter_players(teams=["blue"], role="hub")
+            blue_no_hubs = self.filter_players(teams=["blue"], role="no-hub")
+            orange_hub = self.filter_players(teams=["orange"], role="hub")
+            orange_no_hubs = self.filter_players(teams=["orange"], role="no-hub")
 
             if (blue_hub and blue_no_hubs) and (orange_hub and orange_no_hubs):
                 self._game_state = GameState.WAITING_START
@@ -161,35 +174,66 @@ class OrbitalsTable:
             self._start_game[key] = False
 
     def newClue(self, name: str, clue: str, guess_count: int=1):
-        if self._players[name][0] == self._current_turn and \
-            self._players[name][1] == 'hub':
-            self._current_clue = clue
-            self._current_guess_count = guess_count
+        if self._game_state != GameState.WAITING_CLUE:
+            return "not awaiting clues"
+
+        if self.playerTeam(name) != self._current_turn:
+            return "it is the other team's turn"
+        
+        if self.playerRole(name) == 'no-hub':
+            return "only hub can submit clues"
+
+        self._current_clue = clue
+        self._current_guess_count = min(guess_count, self._board.tiles_left(team=self.playerTeam(name)))
+        self._game_state = GameState.WAITING_APPROVAL
+        return False
+
+    def clueResponse(self, name: str, response: bool=True):
+        # is the clue response expected?
+        if self._game_state != GameState.WAITING_APPROVAL:
+            return "not awaiting clue responses"
+
+        # is player on the opposite team?
+        if self.playerTeam(name) == self._current_turn:
+            return "it is the other team's turn"
+        
+        # is player not a hub?
+        if self.playerRole(name) != 'hub':
+            return "only hub can respond to clues"
+
+        if not response:
+            self._game_state = GameState.WAITING_CLUE
+        else:
             self._game_state = GameState.WAITING_GUESS
 
     def newGuess(self, name: str, guess: str):
-        if self._players[name][0] == self._current_turn and \
-        self._players[name][1] == 'no-hub':
-            self._board.flipTile(guess)
+        if self._game_state != GameState.WAITING_GUESS:
+            return "not awaiting guesses"
 
-            # has this team won?
-            winner = self._board.winner()
-            if winner:
-                self._winning_team = winner
-                self._game_state = GameState.GAME_OVER
-                self._current_turn = ''
-                self._current_clue = ''
-                self._current_guess_count = 0
-                return
+        if self.playerTeam(name) != self._current_turn:
+            return "it is the other team's turn"
+        
+        if self.playerRole(name) == 'hub':
+            return "hubs cannot submit guesses"
 
-            # switch if guess is for opposing team
-            if self.tiles()[guess] != self._current_turn:
-                self._current_guess_count = 1
+        self._board.flipTile(guess)
 
-            self._current_guess_count -= 1
-            # switch if we're out of guesses
-            if (self._current_guess_count) == 0:
-                self.switchTurns()
+        # has this team won?
+        winner = self._board.winner()
+        if winner:
+            self._winning_team = winner
+            self._game_state = GameState.GAME_OVER
+            self._current_turn = ''
+            self._current_clue = ''
+            self._current_guess_count = 0
+            return
+        # switch if guess is for opposing team
+        if self.tiles()[guess] != self._current_turn:
+            self._current_guess_count = 1
+        self._current_guess_count -= 1
+        # switch if we're out of guesses
+        if (self._current_guess_count) == 0:
+            self.switchTurns()
 
     def switchTurns(self):
         self._game_state = GameState.WAITING_CLUE
@@ -219,8 +263,10 @@ class OrbitalsTable:
             for player in self._players.keys():
                 self._players[player][2] = False
 
-    def filter_players(self, *, team: str, role: str):
-        players = [player for player, data in self._players.items() if data[0] == team and data[1] == role]
+    def filter_players(self, *, teams: list, role: str):
+        players = list()
+        for team in teams:
+            players.extend([player for player, data in self._players.items() if data[0] == team and data[1] == role])
         return players
 
 

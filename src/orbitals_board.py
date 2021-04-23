@@ -85,7 +85,6 @@ class OrbitalsBoard:
                 blue = not blue
                 tempDeck.remove(tempDeck[pick])
 
-
     def flipTile(self, tile: str):
         self._tiles[tile][1] = True
         
@@ -100,6 +99,9 @@ class OrbitalsBoard:
             else:
                 exposed_tiles[key] = ''
         return exposed_tiles
+
+    def tiles_left(self, *, team: str):
+        return len([tile for tile in self._tiles.values() if tile[0] == team and tile[1] == False])
 
     def firstTurn(self):
         return self._first_turn
