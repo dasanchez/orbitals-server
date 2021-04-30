@@ -297,6 +297,31 @@ def test_player_leaves_table():
     table.playerLeaves("Ann")
     assert len(table.status()["players"]) == 0
 
+def test_no_hub_leaves_game_over(start_game):
+    table = start_game
+    table.newClue("Ann", "EVERYTHING", 10)
+    table.clueResponse("Elsa", True)
+    assert table.status()['game_state'] == GameState.WAITING_GUESS
+    table.newGuess("Bob", "APPLE")
+    table.newGuess("Bob", "BOMB")
+    table.newGuess("Bob", "CROWN")
+    table.newGuess("Bob", "DAD")
+    table.newGuess("Bob", "EASTER")
+    table.newGuess("Bob", "FLAG")
+    table.newGuess("Bob", "GIANT")
+    table.newGuess("Bob", "HOME")
+    assert table.status()['game_state'] == GameState.GAME_OVER
+    table.replayRequest("Ann")
+    table.replayRequest("Dina")
+    table.replayRequest("Elsa")
+    table.replayRequest("Finn")
+    table.replayRequest("Gina")
+    table.replayRequest("Hank")
+    table.playerLeaves("Bob")
+    assert table.status()['game_state'] == GameState.GAME_OVER
+    table.playerLeaves("Cary")
+    assert table.status()['game_state'] == GameState.WAITING_START
+
 def test_last_no_hub_leaves_waiting_start_one_start_request(create_game_and_teams):
     table = create_game_and_teams
     assert table.status()["game_state"] == GameState.WAITING_START
@@ -318,12 +343,30 @@ def test_last_no_hub_leaves_waiting_clue(create_game_and_teams):
 
 def test_last_no_hub_leaves_waiting_guess(create_game_and_teams):
     table = create_game_and_teams
-    table = create_game_and_teams
     table.startRequest("Ann")
     table.startRequest("Elsa")
     table.newClue("Ann", "COUNTRY", 1)
     table.clueResponse("Elsa", True)
     assert table.status()['game_state'] == GameState.WAITING_GUESS
+    table.playerLeaves("Bob")
+    table.playerLeaves("Cary")
+    table.playerLeaves("Dina")
+    assert table.status()['game_state'] == GameState.WAITING_PLAYERS
+
+def test_last_no_hub_leaves_game_over(start_game):
+    table = start_game
+    table.newClue("Ann", "EVERYTHING", 10)
+    table.clueResponse("Elsa", True)
+    assert table.status()['game_state'] == GameState.WAITING_GUESS
+    table.newGuess("Bob", "APPLE")
+    table.newGuess("Bob", "BOMB")
+    table.newGuess("Bob", "CROWN")
+    table.newGuess("Bob", "DAD")
+    table.newGuess("Bob", "EASTER")
+    table.newGuess("Bob", "FLAG")
+    table.newGuess("Bob", "GIANT")
+    table.newGuess("Bob", "HOME")
+    assert table.status()['game_state'] == GameState.GAME_OVER
     table.playerLeaves("Bob")
     table.playerLeaves("Cary")
     table.playerLeaves("Dina")
@@ -352,6 +395,23 @@ def test_hub_leaves_waiting_guess(create_game_and_teams):
     table.newClue("Ann", "COUNTRY", 1)
     table.clueResponse("Elsa", True)
     assert table.status()['game_state'] == GameState.WAITING_GUESS
+    table.playerLeaves("Elsa")
+    assert table.status()['game_state'] == GameState.WAITING_PLAYERS
+
+def test_hub_leaves_waiting_game_over(start_game):
+    table = start_game
+    table.newClue("Ann", "EVERYTHING", 10)
+    table.clueResponse("Elsa", True)
+    assert table.status()['game_state'] == GameState.WAITING_GUESS
+    table.newGuess("Bob", "APPLE")
+    table.newGuess("Bob", "BOMB")
+    table.newGuess("Bob", "CROWN")
+    table.newGuess("Bob", "DAD")
+    table.newGuess("Bob", "EASTER")
+    table.newGuess("Bob", "FLAG")
+    table.newGuess("Bob", "GIANT")
+    table.newGuess("Bob", "HOME")
+    assert table.status()['game_state'] == GameState.GAME_OVER
     table.playerLeaves("Elsa")
     assert table.status()['game_state'] == GameState.WAITING_PLAYERS
 

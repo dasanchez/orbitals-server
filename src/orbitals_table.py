@@ -110,7 +110,8 @@ class OrbitalsTable:
         if self._game_state == GameState.WAITING_START or\
             self._game_state == GameState.WAITING_CLUE or\
             self._game_state == GameState.WAITING_APPROVAL or\
-            self._game_state == GameState.WAITING_GUESS:
+            self._game_state == GameState.WAITING_GUESS or\
+            self._game_state == GameState.GAME_OVER:
             
             # get team's no-hubs
             no_hubs = self.filter_players(teams=[self.playerTeam(name)], role="no-hub")
@@ -131,6 +132,7 @@ class OrbitalsTable:
                     self._players[player][2] = False
 
         del self._players[name]
+        self.readyToRestart()
 
     def playerTeam(self, name: str):
         return self._players[name][0]
@@ -299,15 +301,7 @@ class OrbitalsTable:
 
     def replayRequest(self, name: str):
         self._players[name][2]=True
-
-        ready_flags = [player[2] for player in self._players]
-        if all(ready_flags):
-            self._game_state = GameState.WAITING_START
-            self._winning_team = ''
-            self._current_clue = ''
-            self._current_guess_count = 0
-            for player in self._players.keys():
-                self._players[player][2] = False
+        self.readyToRestart()
 
     def filter_players(self, *, teams: list, role: str):
         players = list()
@@ -315,4 +309,13 @@ class OrbitalsTable:
             players.extend([player for player, data in self._players.items() if data[0] == team and data[1] == role])
         return players
 
-
+    def readyToRestart(self):
+        # check all ready flags
+        if all([player[2] for player in self._players.values()]):
+            self._game_state = GameState.WAITING_START
+            self._winning_team = ''
+            self._current_clue = ''
+            self._current_guess_count = 0
+            for player in self._players.keys():
+                self._players[player][2] = False
+            return True
