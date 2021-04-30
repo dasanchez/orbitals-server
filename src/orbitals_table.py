@@ -8,14 +8,9 @@ Tracks:
 """
 from enum import Enum, auto
 
-# import asyncio
-# import json
-# import or_comms as orbComms
-# from or_players import OrbitalsPlayers
-# from or_timer import OrbitalsTimer
 from collections import Counter
+from threading import Timer
 from orbitals_board import OrbitalsBoard
-
 
 class GameState(Enum):
     WAITING_PLAYERS = 1
@@ -27,14 +22,17 @@ class GameState(Enum):
 
 
 class OrbitalsTable:
-    """ Top level class """
-
-    def __init__(self, words_source=None, player_limit: int=16):
+    def __init__(self, player_limit: int=16,\
+                       words_source=None,\
+                       tile_count: int=16,\
+                       time_limit: float=30):
         self._players = dict()
         self._player_limit = player_limit
+        self._time_limit = time_limit
+        self._timer = None
         self._start_game = {"blue": False, "orange": False}
         self._game_state = GameState.WAITING_PLAYERS
-        self._board = OrbitalsBoard(word_bag=words_source)
+        self._board = OrbitalsBoard(word_bag=words_source, tile_count=tile_count)
         self._current_turn = ''
         self._current_clue = ''
         self._current_guess_count = 0
@@ -44,17 +42,23 @@ class OrbitalsTable:
     def status(self):
         """
         Returns full game status as a dict:
-        player_limit (default=16)
-        player_count
+        player_limit
+        time_limit
+        players
         game_state
+        start_game
+        wnner
         current_turn
-        orange_tiles_left
-        blue_tiles_left
+        guess_count
+        tiles
+        tiles_left
         """
         status = dict()
         status["player_limit"] = self._player_limit
+        status["time_limit"] = self._time_limit
         status["players"] = self._players
         status["game_state"] = self._game_state
+        status["start_game"] = self._start_game
         status["winner"] = self._winning_team
         status["current_turn"] = self._current_turn
         status["guess_count"] = self._current_guess_count
@@ -64,6 +68,32 @@ class OrbitalsTable:
         status["tiles_left"]["blue"] = self._board.tiles_left(team="blue")
 
         return status
+
+    def setTimeLimit(self, *, seconds: float):
+        # Set timeout in seconds
+        self._time_limit = seconds
+
+    def timerStatus(self):
+        return self._timer.is_alive()
+
+    def stopTimer(self):
+        if self._timer:
+            self._timer.cancel()
+            while self._timer.is_alive():
+                pass
+
+    def timerTimeout(self):
+        self._timer.cancel()
+            
+        if self._game_state == GameState.WAITING_APPROVAL:
+            self._game_state = GameState.WAITING_GUESS
+        else:
+            self._game_state = GameState.WAITING_CLUE
+            self.switchTurns()
+
+        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        self._timer.start()
+        return
 
     def playerJoins(self, name: str):
         if len(self._players) >= self._player_limit:
@@ -77,12 +107,11 @@ class OrbitalsTable:
        
     def playerLeaves(self, name: str):
         # check game state
-        if self._game_state == GameState.WAITING_PLAYERS:
-            del self._players[name]
-        elif self._game_state == GameState.WAITING_START or\
-             self._game_state == GameState.WAITING_CLUE or\
-             self._game_state == GameState.WAITING_APPROVAL or\
-             self._game_state == GameState.WAITING_GUESS:
+        if self._game_state == GameState.WAITING_START or\
+            self._game_state == GameState.WAITING_CLUE or\
+            self._game_state == GameState.WAITING_APPROVAL or\
+            self._game_state == GameState.WAITING_GUESS:
+            
             # get team's no-hubs
             no_hubs = self.filter_players(teams=[self.playerTeam(name)], role="no-hub")
 
@@ -91,14 +120,17 @@ class OrbitalsTable:
             # the player leaving is a hub,
             # switch state to WAITING PLAYERS and reset game status:
             if len(no_hubs) == 1 or self._players[name][1] == 'hub':
+                self.stopTimer()
                 self._game_state = GameState.WAITING_PLAYERS
+                for team in self._start_game.keys():
+                    self._start_game[team] = False
                 self._winning_team = ''
                 self._current_clue = ''
                 self._current_guess_count = 0
                 for player in self._players.keys():
                     self._players[player][2] = False
 
-            del self._players[name]
+        del self._players[name]
 
     def playerTeam(self, name: str):
         return self._players[name][0]
@@ -151,6 +183,10 @@ class OrbitalsTable:
             self.startNewGame()
             
     def startNewGame(self):
+        # Reset start_game flags
+        for key in self._start_game.keys():
+            self._start_game[key] = False
+
         self._board.generateTiles()
 
         # assign first turn
@@ -159,13 +195,12 @@ class OrbitalsTable:
         # set new state
         self._game_state = GameState.WAITING_CLUE
         
-        # Reset start_game flags
-        for key in self._start_game.keys():
-            self._start_game[key] = False
-
+        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        self._timer.start()
+        
     def newClue(self, name: str, clue: str, guess_count: int=1):
         if self._game_state != GameState.WAITING_CLUE:
-            return "not awaiting clues"
+            return f"not awaiting clues, state: {self._game_state}"
 
         if self.playerTeam(name) != self._current_turn:
             return "it is the other team's turn"
@@ -173,9 +208,15 @@ class OrbitalsTable:
         if self.playerRole(name) == 'no-hub':
             return "only hub can submit clues"
 
+        self._timer.cancel()
+        while self._timer.is_alive():
+            pass
         self._current_clue = clue
         self._current_guess_count = min(guess_count, self._board.tiles_left(team=self.playerTeam(name)))
         self._game_state = GameState.WAITING_APPROVAL
+
+        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        self._timer.start()
         return False
 
     def clueResponse(self, name: str, response: bool=True):
@@ -191,10 +232,16 @@ class OrbitalsTable:
         if self.playerRole(name) != 'hub':
             return "only hub can respond to clues"
 
+        self.stopTimer()
+
         if not response:
             self._game_state = GameState.WAITING_CLUE
         else:
             self._game_state = GameState.WAITING_GUESS
+        
+        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        self._timer.start()
+        return False
 
     def newGuess(self, name: str, guess: str):
         if self._game_state != GameState.WAITING_GUESS:
@@ -206,6 +253,11 @@ class OrbitalsTable:
         if self.playerRole(name) == 'hub':
             return "hubs cannot submit guesses"
 
+        if guess not in self.tiles().keys():
+            return "guess is not on the board"
+
+        self.stopTimer()
+        
         self._board.flipTile(guess)
 
         # has this team won?
@@ -222,11 +274,15 @@ class OrbitalsTable:
             self._current_guess_count = 1
         self._current_guess_count -= 1
         # switch if we're out of guesses
-        if (self._current_guess_count) == 0:
+        if self._current_guess_count == 0:
+            self._game_state = GameState.WAITING_CLUE
             self.switchTurns()
 
+        # start timer
+        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        self._timer.start()
+
     def switchTurns(self):
-        self._game_state = GameState.WAITING_CLUE
         if self._current_turn == 'blue':
             self._current_turn = 'orange'
         else:
@@ -236,7 +292,7 @@ class OrbitalsTable:
         return self._board.tiles()
 
     def currentClue(self):
-        return self._current_clue, self._current_guess_count
+        return self._current_clue
 
     def winner(self):
         return self._winning_team
