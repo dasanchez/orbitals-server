@@ -450,7 +450,7 @@ def test_sad_player_limit_reached():
     table.playerJoins("Cat")
     table.playerJoins("Don")
     table.playerJoins("Eve")
-    assert not table.playerJoins("Fog")
+    assert table.playerJoins("Fog") == "name accepted"
     assert table.playerJoins("Gus") == "player limit has been reached"
 
 def test_sad_player_name_exists():
@@ -474,7 +474,7 @@ def test_sad_clue_wrong_state(start_game):
     table = start_game
     assert not table.newClue("Ann", "FRUIT")
     assert table.status()["game_state"] == GameState.WAITING_APPROVAL
-    assert table.newClue("Ann", "FRUIT") == "not awaiting clues, state: GameState.WAITING_APPROVAL"
+    assert table.newClue("Ann", "FRUIT") == "not awaiting clues, state: WAITING_APPROVAL"
     table.stopTimer()
 
 def test_sad_guess_wrong_team(start_game):
