@@ -1,6 +1,7 @@
 import json
 import pytest
 from pprint import pprint
+import asyncio
 
 from orbitals_table_manager import OrbitalsTableManager
 
@@ -11,11 +12,13 @@ class Player():
         self._messages = list()
     def new_data(self, packet):
         self._messages.append(json.loads(packet))
+        if len(self._messages) > 3:
+            self._messages.pop(0)
         # self._msg = json.loads(packet)
     def clear_messages(self):
         self._messages.clear()
     def latestEntry(self):
-        return self._messages.pop(0)
+        return self._messages.pop()
     def name(self):
         return self._name
 
@@ -24,7 +27,7 @@ def getResponse(fn, message_dict):
     return json.loads(fn(data))
 
 @pytest.fixture
-def create_table_manager_with_players():
+def tm_with_players():
     tm = OrbitalsTableManager(player_limit=4, time_limit=1)
     players = list()
     player_Ann = Player("Ann")
@@ -38,6 +41,7 @@ def create_table_manager_with_players():
 
     for player in players:
         tm.playerMessage(player, json.dumps({"type":"name-request", "name":player.name()}))
+        player.latestEntry()
         assert player.latestEntry()["msg"] == "name accepted"
     
     tm.playerMessage(player_Ann, json.dumps({"type":"team-request","team":"blue"}))
@@ -51,7 +55,7 @@ def create_table_manager_with_players():
     yield tm, players
 
 @pytest.fixture
-def create_table_manager_with_players_pre_start():
+def tm_with_players_pre_start():
     tm = OrbitalsTableManager(player_limit=8, time_limit=1)
     players = list()
     player_Ann = Player("Ann")
@@ -73,6 +77,7 @@ def create_table_manager_with_players_pre_start():
 
     for player in players:
         tm.playerMessage(player, json.dumps({"type":"name-request", "name":player.name()}))
+        player.latestEntry()
         assert player.latestEntry()["msg"] == "name accepted"
 
     packet = {"type":"team-request", "team":"blue"}
@@ -91,10 +96,12 @@ def create_table_manager_with_players_pre_start():
     packet["type"] = "role-request"
     packet["role"] = "hub"
     tm.playerMessage(player_Ann, json.dumps(packet))
+    player_Ann.latestEntry()
     assert player_Ann.latestEntry()["msg"] == "role accepted"
     for player in players:
         player.clear_messages()
     tm.playerMessage(player_Elsa, json.dumps(packet))
+    player_Elsa.latestEntry()
     assert player_Elsa.latestEntry()["msg"] == "role accepted"
     for player in players:
         player.clear_messages()
@@ -124,6 +131,7 @@ def start_game():
 
     for player in players:
         tm.playerMessage(player, json.dumps({"type":"name-request", "name":player.name()}))
+        player.latestEntry()
         assert player.latestEntry()["msg"] == "name accepted"
 
     packet = {"type":"team-request", "team":"blue"}
@@ -153,7 +161,6 @@ def start_game():
 
     yield tm, players
 
-
 def test_new_connection():
     tm = OrbitalsTableManager()
     player = Player("Player")
@@ -166,6 +173,7 @@ def test_name_request():
     player = Player("Player")
     packet = {"type": "name-request", "name": "Player"}
     tm.playerMessage(player, json.dumps(packet))
+    player.latestEntry()
     assert player.latestEntry()["msg"] == "name accepted"
     player2 = Player("Player 2")
     packet = {"type": "name-request", "name": "Player"}
@@ -198,19 +206,21 @@ def test_team_request():
     player.clear_messages()
     packet = {"type": "team-request", "team":"blue"}
     tm.playerMessage(player, json.dumps(packet))
+    player.latestEntry()
     assert player.latestEntry()["msg"] == "team accepted"
 
-def test_role_request(create_table_manager_with_players):
-    tm, players = create_table_manager_with_players
+def test_role_request(tm_with_players):
+    tm, players = tm_with_players
     packet = {"type": "role-request", "role": "hub"}
     tm.playerMessage(players[0], json.dumps(packet))
+    players[0].latestEntry()
     assert players[0].latestEntry()["msg"] == "role accepted"
     players[1].clear_messages()
     tm.playerMessage(players[1],json.dumps(packet))
     assert players[1].latestEntry()["msg"] == "hub role not available"
 
-def test_start_request(create_table_manager_with_players_pre_start):
-    tm, players = create_table_manager_with_players_pre_start
+def test_start_request(tm_with_players_pre_start):
+    tm, players = tm_with_players_pre_start
 
     packet = {"type": "status-request"}
     tm.playerMessage(players[0], json.dumps(packet))
@@ -291,19 +301,97 @@ def test_broadcasts():
     assert player_1.latestEntry()["msg"] == "provide name"
     packet = {"type":"name-request", "name":"Ann"}
     tm.playerMessage(player_1, json.dumps(packet))
-    assert player_1.latestEntry()["msg"] == "name accepted"
     assert player_1.latestEntry()["msg"] == "Ann has joined the game"
+    assert player_1.latestEntry()["msg"] == "name accepted"
     packet = {"type":"name-request", "name":"Bob"}
     tm.playerMessage(player_2, json.dumps(packet))
     assert player_1.latestEntry()["msg"] == "Bob has joined the game"
     packet = {"type":"team-request", "team":"blue"}
     tm.playerMessage(player_1,json.dumps(packet))
-    assert player_1.latestEntry()["msg"] == "team accepted"
     assert player_1.latestEntry()["msg"] == "Ann has joined the blue team"
+    assert player_1.latestEntry()["msg"] == "team accepted"
     packet = {"type":"role-request", "role":"hub"}
     tm.playerMessage(player_1,json.dumps(packet))
-    assert player_1.latestEntry()["msg"] == "role accepted"
     assert player_1.latestEntry()["msg"] == "Ann is now a hub"
+    assert player_1.latestEntry()["msg"] == "role accepted"
+
+@pytest.mark.asyncio
+async def test_broadcast_states():
+    p_blue_hub = Player("Blue Hub")
+    p_blue = Player("Blue")
+    p_orange_hub = Player("Orange Hub")
+    p_orange = Player("Orange")
+    players = [p_blue_hub,p_blue,p_orange_hub,p_orange]
+
+    tm = OrbitalsTableManager(time_limit=0.05)
+    tm.playerMessage(p_blue_hub, json.dumps({"type":"name-request","name":p_blue_hub.name()}))
+    tm.playerMessage(p_blue, json.dumps({"type":"name-request","name":p_blue.name()}))
+    tm.playerMessage(p_orange_hub, json.dumps({"type":"name-request","name":p_orange_hub.name()}))
+    tm.playerMessage(p_orange, json.dumps({"type":"name-request","name":p_orange.name()}))
+    tm.playerMessage(p_blue_hub, json.dumps({"type":"team-request","team":"blue"}))
+    tm.playerMessage(p_blue, json.dumps({"type":"team-request","team":"blue"}))
+    tm.playerMessage(p_orange_hub, json.dumps({"type":"team-request","team":"orange"}))
+    tm.playerMessage(p_orange, json.dumps({"type":"team-request","team":"orange"}))
+    tm.playerMessage(p_blue_hub,json.dumps({"type":"role-request","role":"hub"}))
     
-def test_broadcast_state_change(create_table_manager_with_players_pre_start):
-    tm, players = create_table_manager_with_players_pre_start
+    # WAITING_PLAYERS -> WAITING_START
+    assert p_blue.latestEntry()["status"]["game_state"] == "WAITING_PLAYERS"
+    tm.playerMessage(p_orange_hub,json.dumps({"type":"role-request","role":"hub"}))
+    assert p_blue.latestEntry()["status"]["game_state"] == "WAITING_START"
+    tm.playerMessage(p_blue_hub,json.dumps({"type":"start-request"}))
+    tm.playerMessage(p_orange_hub,json.dumps({"type":"start-request"}))
+    # WAITING_START -> WAITING_CLUE
+    assert p_blue.latestEntry()["status"]["game_state"] == "WAITING_CLUE"
+    # WAITING_CLUE -> WAITING_APPROVAL
+    tm.playerMessage(p_blue_hub,json.dumps({"type":"new-clue","clue":"FRUIT","count":1}))
+    resp = p_blue.latestEntry()
+    # pprint(resp["status"])
+    assert resp["status"]["game_state"] == "WAITING_APPROVAL"
+    assert "new-clue" not in resp["status"].keys()
+    res_hub = p_orange_hub.latestEntry()
+    assert res_hub["status"]["clue"] == "FRUIT"
+    assert res_hub["status"]["guesses_left"] == 1
+
+    # WAITING_APPROVAL -> WAITING_GUESS
+    tm.playerMessage(p_orange_hub,json.dumps({"type":"clue-approved"}))
+    resp = p_blue.latestEntry()
+    assert resp["status"]["game_state"] == "WAITING_GUESS"
+    assert resp["status"]["clue"] == "FRUIT"
+    assert resp["status"]["guesses_left"] == 1
+    # WAITING_GUESS -> WAITING_CLUE
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"APPLE"}))
+    assert p_orange.latestEntry()["status"]["game_state"] == "WAITING_CLUE"
+    # WAITING_CLUE -> WAITING_CLUE for opposite team due to timeout
+    await asyncio.sleep(0.06)
+    broadcast = p_orange.latestEntry()
+    assert broadcast["msg"] == "timeout"
+    assert broadcast["status"]["current_turn"] == "blue"
+    # WAITING_CLUE -> WAITING APPROVAL
+    tm.playerMessage(p_blue_hub,json.dumps({"type":"new-clue","clue":"EVERYTHING","count":7}))
+    assert p_blue.latestEntry()["status"]["game_state"] == "WAITING_APPROVAL"
+    # WAITING APPROVAL -> WAITING GUESS
+    tm.playerMessage(p_orange_hub,json.dumps({"type":"clue-approved"}))
+    status = p_blue.latestEntry()["status"]
+    assert status["game_state"] == "WAITING_GUESS"
+    assert status["guesses_left"] == 7
+    # WAITING GUESS -> GAME_OVER
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"BOMB"}))
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"CROWN"}))
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"DAD"}))
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"EASTER"}))
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"FLAG"}))
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"GIANT"}))
+    tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"HOME"}))
+    status = p_blue.latestEntry()["status"]
+    assert status["game_state"] == "GAME_OVER"
+    assert status["winner"] == "blue"
+    # GAME_OVER -> WAITING_START
+    tm.playerMessage(p_blue_hub, json.dumps({"type":"replay-request"}))
+    tm.playerMessage(p_blue, json.dumps({"type":"replay-request"}))
+    tm.playerMessage(p_orange, json.dumps({"type":"replay-request"}))
+    tm.playerMessage(p_orange_hub, json.dumps({"type":"replay-request"}))        
+    status = p_blue.latestEntry()["status"]
+    assert status["game_state"] == "WAITING_START"
+    
+    tm._table.stopTimer()
+    

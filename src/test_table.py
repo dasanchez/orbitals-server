@@ -160,7 +160,7 @@ def test_accept_clue(create_game_and_teams):
     assert table.status()["game_state"] == GameState.WAITING_CLUE
     assert not table.newClue("Ann", "FRUIT")
     assert table.currentClue() == "FRUIT"
-    assert table.status()["guess_count"] == 1
+    assert table.guessesLeft() == 1
     assert table.status()["game_state"] == GameState.WAITING_APPROVAL
     table.stopTimer()
 
@@ -215,7 +215,7 @@ def test_accept_clue_with_count(create_game_and_teams):
     table.newGuess("Bob", "APPLE")
     table.newClue("Elsa", "COUNTRY", 2)
     assert table.currentClue() == "COUNTRY"
-    assert table.status()["guess_count"] == 2
+    assert table.guessesLeft() == 2
     table.stopTimer()
 
 def test_multiple_guesses_turn_switch(create_game_and_teams):
@@ -290,6 +290,11 @@ def test_replay_requests(create_game_and_teams):
     table.replayRequest("Gina")
     table.replayRequest("Hank")
     assert table.status()["game_state"] == GameState.WAITING_START
+
+def test_get_approver(start_game):
+    table = start_game
+    assert table.getApprover() == "Elsa"
+    table.stopTimer()
 
 def test_player_leaves_table():
     table = OrbitalsTable()
@@ -440,7 +445,7 @@ def test_cap_guess_count_unexposed_tiles(create_game_and_teams):
     table.startRequest("Elsa")
     assert table.status()["tiles_left"]["blue"] == 8
     table.newClue("Ann", "COUNTRY", 12)
-    assert table.status()["guess_count"] == 8
+    assert table.guessesLeft() == 8
     table.stopTimer()
     
 def test_sad_player_limit_reached():

@@ -62,7 +62,7 @@ class OrbitalsTable:
         status["start_game"] = self._start_game
         status["winner"] = self._winning_team
         status["current_turn"] = self._current_turn
-        status["guess_count"] = self._current_guess_count
+        # status["guess_count"] = self._current_guess_count
         status["tiles"] = self.tiles()
         status["tiles_left"] = dict()
         status["tiles_left"]["orange"] = self._board.tiles_left(team="orange")
@@ -94,6 +94,9 @@ class OrbitalsTable:
 
         self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
         self._timer.start()
+
+        if self._callback:
+            self._callback("timeout")
         return
 
     def playerJoins(self, name: str):
@@ -198,6 +201,12 @@ class OrbitalsTable:
     def players(self):
         return self._players
 
+    def getApprover(self):
+        if self._current_turn == "blue":
+            return self.filter_players(teams=["orange"], role="hub").pop()
+        else:
+            return self.filter_players(teams=["blue"], role="hub").pop()
+
     def startRequest(self, name: str):
         # do we have at least one player in each role?
         # 1 hub and 1 no-hub per team
@@ -214,7 +223,6 @@ class OrbitalsTable:
         self._start_game[self.playerTeam(name)] = True
         if all(self._start_game.values()):
             self.startNewGame()
-        
             
     def startNewGame(self):
         # Reset start_game flags
@@ -328,12 +336,16 @@ class OrbitalsTable:
     def currentClue(self):
         return self._current_clue
 
+    def guessesLeft(self):
+        return self._current_guess_count
+
     def winner(self):
         return self._winning_team
 
     def replayRequest(self, name: str):
         self._players[name][2]=True
         self.readyToRestart()
+        return "request accepted"
 
     def filter_players(self, *, teams: list, role: str):
         players = list()

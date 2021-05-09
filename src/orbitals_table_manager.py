@@ -13,7 +13,7 @@ class OrbitalsTableManager():
             self._connections = connections
         self._table = OrbitalsTable(player_limit=player_limit,
                             time_limit=time_limit,
-                            callback=self.dataOut)
+                            callback=self.broadcast)
 
     def playerLeft(self, sender):
         name = self._connections[sender]
@@ -89,7 +89,7 @@ class OrbitalsTableManager():
                 response["type"] = "status"
                 response["status"] = self._table.status()
 
-                if self._table.status()["game_state"] == "WAITING-CLUE":
+                if self._table.status()["game_state"] == "WAITING_CLUE":
                     self.broadcast(f'game has started')
             elif data["type"] == "new-clue":
                 name = self._connections[sender]
@@ -99,7 +99,7 @@ class OrbitalsTableManager():
                 response["msg"] = resp
                 response["status"] = self._table.status()
                 sender.new_data(json.dumps(response))
-                if self._table.status()["game_state"] == "WAITING-APPROVAL":
+                if self._table.status()["game_state"] == "WAITING_APPROVAL":
                     self.broadcast(f'new clue has been submitted')
             elif data["type"] == "clue-approved":
                 name = self._connections[sender]
@@ -109,7 +109,7 @@ class OrbitalsTableManager():
                 response["msg"] = resp
                 response["status"] = self._table.status()
                 sender.new_data(json.dumps(response))
-                if self._table.status()["game_state"] == "WAITING-GUESS":
+                if self._table.status()["game_state"] == "WAITING_GUESS":
                     self.broadcast(f'clue has been approved')
             elif data["type"] == "clue-rejected":
                 name = self._connections[sender]
@@ -120,7 +120,7 @@ class OrbitalsTableManager():
                 response["status"] = self._table.status()
                 sender.new_data(json.dumps(response))
 
-                if self._table.status()["game_state"] == "WAITING-CLUE":
+                if self._table.status()["game_state"] == "WAITING_CLUE":
                     self.broadcast(f'clue has been approved')
             elif data["type"] == "new-guess":
                 name = self._connections[sender]
@@ -132,13 +132,21 @@ class OrbitalsTableManager():
                 sender.new_data(json.dumps(response))
 
                 self.broadcast(f'guess has been submitted')
-            
+            elif data["type"] == "replay-request":
+                name = self._connections[sender]
+                resp = self._table.replayRequest(name)
+                response = dict()
+                response["type"] = "msg"
+                response["msg"] = resp
+                response["status"] = self._table.status()
+                sender.new_data(json.dumps(response))
+                if self._table.status()["game_state"] == "WAITING_START":
+                    self.broadcast(f'all players are ready to play again')
             elif data["type"] == "status-request":
                 response = dict()
                 response["type"] = "status"
                 response["status"] = self._table.status()
                 sender.new_data(json.dumps(response))
-
 
     def broadcast(self, message):
         msg = dict()
@@ -146,44 +154,14 @@ class OrbitalsTableManager():
         msg["status"] = self._table.status()
         msg["msg"] = message
         for player in self._connections.keys():
-            # print(f"Updating msg queue in {player.name()}")
-            player.new_data(json.dumps(msg))
+            if (msg["status"]["game_state"] == "WAITING_APPROVAL" and player.name() == self._table.getApprover())\
+                or msg["status"]["game_state"] == "WAITING_GUESS":
+                hubmsg = msg.copy()
+                hubmsg["status"]["clue"] = self._table.currentClue()
+                hubmsg["status"]["guesses_left"] = self._table.guessesLeft()
+                player.new_data(json.dumps(hubmsg))
+            else: 
+                player.new_data(json.dumps(msg))
 
-    # def dataIn(self, packet=None):
-    #     data = json.loads(packet)
-    #     response = dict()
-    #     if data["type"] == "connection":
-    #         response["type"] = "msg"
-    #         response["msg"] = "provide name"
-    #     elif data["type"] == "player-left":
-    #         self._table.playerLeaves(data["name"])
-    #     elif data["type"] == "name-request":
-    #         response["type"] = "msg"
-    #         response["msg"] = self._table.playerJoins(data["name"])
-    #     elif data["type"] == "team-request":
-    #         response["type"] = "msg"
-    #         response["msg"] = self._table.teamRequest(data["name"], data["team"])
-    #     elif data["type"] == "role-request":
-    #         response["type"] = "msg"
-    #         response["msg"] = self._table.roleRequest(data["name"], data["role"])
-    #     elif data["type"] == "start-request":
-    #         response["type"] = "msg"
-    #         response["msg"] = self._table.startRequest(data["name"])
-    #     elif data["type"] == "new-clue":
-    #         response["msg"] = self._table.newClue(data["name"], data["clue"], int(data["count"]))
-    #     elif data["type"] == "clue-response":
-    #         response["msg"] = self._table.clueResponse(data["name"], bool(data["response"]))
-    #     elif data["type"] == "new-guess":
-    #         response["msg"] = self._table.newGuess(data["name"], data["guess"])
-    #     elif data["type"] == "control":
-    #         if data["cmd"] == "stop-timer":
-    #             self._table.stopTimer()
-    #     else:
-    #         response["type"] = "msg"
-    #         response["msg"] = "message not recognized"
-    #     response["status"] = self._table.status()
-    #     return json.dumps(response)
-
-    def dataOut(self, message):
+    def tableMessage(self, message):
         pass
-
