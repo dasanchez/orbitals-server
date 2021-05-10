@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 from orbitals_table import OrbitalsTable, GameState
 
@@ -13,15 +14,15 @@ class OrbitalsTableManager():
             self._connections = connections
         self._table = OrbitalsTable(player_limit=player_limit,
                             time_limit=time_limit,
-                            callback=self.broadcast)
+                            callback=self.tableMessage)
 
-    def playerLeft(self, sender):
+    async def playerLeft(self, sender):
         name = self._connections[sender]
         self._table.playerLeaves(name)
         del self._connections[sender]
-        self.broadcast(f"{name} has left")
+        await self.broadcast(f"{name} has left")
 
-    def playerMessage(self, sender, packet):
+    async def playerMessage(self, sender, packet):
         data = json.loads(packet)
         if sender not in self._connections.keys():
             self._connections[sender] = ""
@@ -33,16 +34,16 @@ class OrbitalsTableManager():
                 response["msg"] = resp
                 response["status"] = self._table.status()
 
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
                 
                 if resp == "name accepted":
                     self._connections[sender] = data["name"]
-                    self.broadcast(f'{data["name"]} has joined the game')
+                    await self.broadcast(f'{data["name"]} has joined the game')
             elif data["type"] == "connection":
                 response = dict()
                 response["type"] = "msg"
                 response["msg"] = "provide name"
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
         else:
             if data["type"] == "name-request":
                 resp = self._table.playerJoins(data["name"])
@@ -51,11 +52,11 @@ class OrbitalsTableManager():
                 response["msg"] = resp
                 response["status"] = self._table.status()
 
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
                 
                 if resp == "name accepted":
                     self._connections[sender] = data["name"]
-                    self.broadcast(f'{data["name"]} has joined the game')
+                    await self.broadcast(f'{data["name"]} has joined the game')
             elif data["type"] == "team-request":
                 name = self._connections[sender]
                 resp = self._table.teamRequest(name, data["team"])
@@ -64,11 +65,11 @@ class OrbitalsTableManager():
                 response["msg"] = resp
                 response["status"] = self._table.status()
 
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
                 
                 if resp == "team accepted":
                     self._connections[sender] = name
-                    self.broadcast(f'{name} has joined the {data["team"]} team')
+                    await self.broadcast(f'{name} has joined the {data["team"]} team')
             elif data["type"] == "role-request":
                 name = self._connections[sender]
                 resp = self._table.roleRequest(name, data["role"])
@@ -76,11 +77,11 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
                 
                 if resp == "role accepted":
                     self._connections[sender] = name
-                    self.broadcast(f'{name} is now a {data["role"]}')
+                    await self.broadcast(f'{name} is now a {data["role"]}')
             elif data["type"] == "start-request":
                 name = self._connections[sender]
                 resp = self._table.startRequest(name)
@@ -88,9 +89,10 @@ class OrbitalsTableManager():
                 response = dict()
                 response["type"] = "status"
                 response["status"] = self._table.status()
+                await sender.send(json.dumps(response))
 
                 if self._table.status()["game_state"] == "WAITING_CLUE":
-                    self.broadcast(f'game has started')
+                    await self.broadcast(f'game has started')
             elif data["type"] == "new-clue":
                 name = self._connections[sender]
                 resp = self._table.newClue(name, data["clue"],int(data["count"]))
@@ -98,9 +100,9 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
                 if self._table.status()["game_state"] == "WAITING_APPROVAL":
-                    self.broadcast(f'new clue has been submitted')
+                    await self.broadcast(f'new clue has been submitted')
             elif data["type"] == "clue-approved":
                 name = self._connections[sender]
                 resp = self._table.clueResponse(name, True)
@@ -108,9 +110,9 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
                 if self._table.status()["game_state"] == "WAITING_GUESS":
-                    self.broadcast(f'clue has been approved')
+                    await self.broadcast(f'clue has been approved')
             elif data["type"] == "clue-rejected":
                 name = self._connections[sender]
                 resp = self._table.clueResponse(name, False)
@@ -118,10 +120,10 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
 
                 if self._table.status()["game_state"] == "WAITING_CLUE":
-                    self.broadcast(f'clue has been approved')
+                    await self.broadcast(f'clue has been approved')
             elif data["type"] == "new-guess":
                 name = self._connections[sender]
                 resp = self._table.newGuess(name, data["guess"])
@@ -129,9 +131,9 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
 
-                self.broadcast(f'guess has been submitted')
+                await self.broadcast(f'guess has been submitted')
             elif data["type"] == "replay-request":
                 name = self._connections[sender]
                 resp = self._table.replayRequest(name)
@@ -139,16 +141,16 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
                 if self._table.status()["game_state"] == "WAITING_START":
-                    self.broadcast(f'all players are ready to play again')
+                    await self.broadcast(f'all players are ready to play again')
             elif data["type"] == "status-request":
                 response = dict()
                 response["type"] = "status"
                 response["status"] = self._table.status()
-                sender.new_data(json.dumps(response))
+                await sender.send(json.dumps(response))
 
-    def broadcast(self, message):
+    async def broadcast(self, message):
         msg = dict()
         msg["type"] = "broadcast"
         msg["status"] = self._table.status()
@@ -159,9 +161,9 @@ class OrbitalsTableManager():
                 hubmsg = msg.copy()
                 hubmsg["status"]["clue"] = self._table.currentClue()
                 hubmsg["status"]["guesses_left"] = self._table.guessesLeft()
-                player.new_data(json.dumps(hubmsg))
+                await player.send(json.dumps(hubmsg))
             else: 
-                player.new_data(json.dumps(msg))
+                await player.send(json.dumps(msg))
 
     def tableMessage(self, message):
-        pass
+        asyncio.run(self.broadcast(message))

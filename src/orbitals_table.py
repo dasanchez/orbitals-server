@@ -298,13 +298,14 @@ class OrbitalsTable:
         if guess not in self.tiles().keys():
             return "guess is not on the board"
 
-        self.stopTimer()
+        # self.stopTimer()
         
         self._board.flipTile(guess)
 
         # has this team won?
         winner = self._board.winner()
         if winner:
+            self.stopTimer()
             self._winning_team = winner
             self._game_state = GameState.GAME_OVER
             self._current_turn = ''
@@ -314,15 +315,19 @@ class OrbitalsTable:
         # switch if guess is for opposing team
         if self.tiles()[guess] != self._current_turn:
             self._current_guess_count = 1
+        
         self._current_guess_count -= 1
         # switch if we're out of guesses
         if self._current_guess_count == 0:
+            self.stopTimer()
             self._game_state = GameState.WAITING_CLUE
+            self._current_clue = ""
             self.switchTurns()
 
-        # start timer
-        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
-        self._timer.start()
+            # start timer
+            self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+            self._timer.start()
+
 
     def switchTurns(self):
         if self._current_turn == 'blue':
