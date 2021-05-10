@@ -53,7 +53,8 @@ async def test_name_request(start_orbitals_server):
     uri = "ws://localhost:" + str(srv.serverPort())
 
     ws = await connect_player("Ann", uri)
-
+    await ws.close()
+    
     # async with websockets.connect(uri) as websocket:
     #     await websocket.recv()
     #     packet = json.dumps({"type":"name-request","name":"Ann"})
