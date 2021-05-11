@@ -6,6 +6,39 @@ from pprint import pprint
 import pytest
 from orbitals_ws_server import Orbitals_WS_Server
 
+async def connect_player(name: str, uri: str):
+    ws = await websockets.connect(uri)
+    await ws.recv() # "provide name" response
+    packet = json.dumps({"type":"name-request","name":name})
+    await ws.send(packet)
+    await ws.recv()
+    return ws
+
+async def clean_connect_player(name: str, uri: str, players):
+    ws = await websockets.connect(uri)
+    await ws.recv() # "provide name" response
+    packet = json.dumps({"type":"name-request","name":name})
+    await ws.send(packet)
+    await ws.recv()
+    await ws.recv()
+    for p in players:
+        await p.recv()
+    return ws
+
+async def request_team(ws, team: str, players):
+    packet = json.dumps({"type":"team-request","team":team})
+    await ws.send(packet)
+    await ws.recv()
+    for p in players:
+        await p.recv()
+
+async def request_role(ws, role: str, players):
+    packet = json.dumps({"type":"role-request","role":role})
+    await ws.send(packet)
+    await ws.recv()
+    for p in players:
+        await p.recv()
+
 @pytest.fixture
 async def start_orbitals_server():
     messages = [""]
@@ -14,15 +47,77 @@ async def start_orbitals_server():
     await srv.start_server()
     yield srv, messages
 
-@pytest.mark.asyncio
-async def test_start_stop_server():
+@pytest.fixture
+async def ready_players():
     messages = [""]
+    players = []
     srv = Orbitals_WS_Server(server_out=messages)
     messages.pop()
     await srv.start_server()
-    assert messages.pop()["status"] == "Server is running"
+    uri = "ws://localhost:" + str(srv.serverPort())
+    
+    # populate players
+    ann = await clean_connect_player("Ann", uri, players)
+    players.append(ann)
+    await request_team(ann, "blue", players)
+    await request_role(ann, "hub", players)
+    bob = await clean_connect_player("Bob", uri, players)
+    players.append(bob)
+    await request_team(bob, "blue", players)
+    eve = await clean_connect_player("Eve", uri, players)
+    players.append(eve)
+    await request_team(eve, "orange", players)
+    await request_role(eve, "hub", players)
+    fog = await clean_connect_player("Fog", uri, players)
+    players.append(fog)
+    await request_team(fog, "orange", players)
+ 
+
+    yield srv, messages, players
+
+@pytest.fixture
+async def start_game():
+    messages = [""]
+    players = []
+    srv = Orbitals_WS_Server(server_out=messages, timeout=0.05)
+    messages.pop()
+    await srv.start_server()
+    uri = "ws://localhost:" + str(srv.serverPort())
+    
+    # populate players
+    ann = await clean_connect_player("Ann", uri, players)
+    players.append(ann)
+    await request_team(ann, "blue", players)
+    await request_role(ann, "hub", players)
+    bob = await clean_connect_player("Bob", uri, players)
+    players.append(bob)
+    await request_team(bob, "blue", players)
+    eve = await clean_connect_player("Eve", uri, players)
+    players.append(eve)
+    await request_team(eve, "orange", players)
+    await request_role(eve, "hub", players)
+    fog = await clean_connect_player("Fog", uri, players)
+    players.append(fog)
+    await request_team(fog, "orange", players)
+ 
+    # start game
+    packet = json.dumps({"type":"start-request"})
+    await ann.send(packet)
+    for p in players:
+        await p.recv()
+    await eve.send(packet)
+    for p in players:
+        await p.recv()
+        
+
+    yield srv, messages, players
+
+@pytest.mark.asyncio
+async def test_start_stop_server(start_orbitals_server):
+    srv, msg = start_orbitals_server
+    assert msg.pop()["status"] == "Server is running"
     await srv.stop_server()
-    assert messages.pop()["status"] == "Server is not running"
+    assert msg.pop()["status"] == "Server is not running"
 
 @pytest.mark.asyncio
 async def test_player_connection():
@@ -38,36 +133,260 @@ async def test_player_connection():
     
     await srv.stop_server()   
 
-async def connect_player(name: str, uri: str):
-    ws = await websockets.connect(uri)
-    await ws.recv() # "provide name" response
-    packet = json.dumps({"type":"name-request","name":"Ann"})
-    await ws.send(packet)
-    resp = json.loads(await ws.recv())
-    assert resp["msg"] == "name accepted"
-    return ws
-
 @pytest.mark.asyncio
 async def test_name_request(start_orbitals_server):
     srv, _ = start_orbitals_server
     uri = "ws://localhost:" + str(srv.serverPort())
 
     ws = await connect_player("Ann", uri)
-    await ws.close()
-    
-    # async with websockets.connect(uri) as websocket:
-    #     await websocket.recv()
-    #     packet = json.dumps({"type":"name-request","name":"Ann"})
-    #     await websocket.send(packet)
-    #     resp = json.loads(await websocket.recv())
-    #     assert resp["msg"] == "name accepted"
 
+    ws2 = await websockets.connect(uri)
+    await ws2.recv()
+    packet = json.dumps({"type":"name-request","name":"Ann"})
+    await ws2.send(packet)
+    resp = json.loads(await ws2.recv())
+    assert resp["msg"] == "player name exists"
+    
+    await ws.close()
+    await ws2.close()
+    
     await srv.stop_server()
 
-# from or_server import OrbitalsServer
-# import server_responses as sr
+@pytest.mark.asyncio
+async def test_team_request(start_orbitals_server):
+    srv, _ = start_orbitals_server
+    uri = "ws://localhost:" + str(srv.serverPort())
 
-# uri = "ws://localhost:9001"
+    ws = await connect_player("Ann", uri)
+    await ws.recv()
+    packet = json.dumps({"type":"team-request","team":"blue"})
+    await ws.send(packet)
+    resp = json.loads(await ws.recv())
+    assert resp["msg"] == "team accepted"
+    await ws.close()    
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_role_request(start_orbitals_server):
+    srv, _ = start_orbitals_server
+    uri = "ws://localhost:" + str(srv.serverPort())
+
+    ws = await connect_player("Ann", uri)
+    await ws.recv()
+    packet = json.dumps({"type":"team-request","team":"blue"})
+    await ws.send(packet)
+    await ws.recv()
+    await ws.recv()
+    packet = json.dumps({"type":"role-request","role":"hub"})
+    await ws.send(packet)
+    resp = json.loads(await ws.recv())
+    assert resp["msg"] == "role accepted"
+
+    await ws.close()
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_start_game(ready_players):
+    srv, _, players = ready_players
+    packet = json.dumps({"type":"status-request"})
+    await players[0].send(packet)
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_START"
+    packet = json.dumps({"type":"start-request"})
+    await players[0].send(packet)
+    # clear broadcast
+    for p in players:
+        await p.recv()
+    await players[2].send(packet)
+    resp = json.loads(await players[2].recv())
+    assert resp["status"]["game_state"] == "WAITING_CLUE"
+    
+    for p in players:
+        await p.close()
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_waiting_start_to_waiting_players(ready_players):
+    # reset to WAITING_PLAYERS after critical player leaves
+    srv, _, players = ready_players
+    packet = json.dumps({"type":"status-request"})
+    await players[0].send(packet)
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_START"
+    
+    await players[0].close()
+    del players[0]
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_PLAYERS"
+
+    for p in players:
+        await p.close()
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_waiting_clue_to_waiting_players(start_game):
+    # reset to WAITING_PLAYERS after critical player leaves
+    srv, _, players = start_game
+    packet = json.dumps({"type":"status-request"})
+    await players[0].send(packet)
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_CLUE"
+
+    await players[0].close()
+    del players[0]
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_PLAYERS"
+
+    for p in players:
+        await p.close()
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_waiting_approval_to_waiting_players(start_game):
+    # reset to WAITING_PLAYERS after critical player leaves
+    srv, _, players = start_game
+    packet = json.dumps({"type":"new-clue","clue":"FRUIT","count":1})
+    await players[0].send(packet)
+    resp = json.loads(await players[0].recv())
+    for p in players:
+        await p.recv()
+
+    assert resp["status"]["game_state"] == "WAITING_APPROVAL"
+
+    await players[0].close()
+    del players[0]
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_PLAYERS"
+
+    for p in players:
+        await p.close()
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_waiting_guess_to_waiting_players(start_game):
+    # reset to WAITING_PLAYERS after critical player leaves
+    srv, _, players = start_game
+    packet = json.dumps({"type":"new-clue","clue":"FRUIT","count":1})
+    await players[0].send(packet)
+    await players[0].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"clue-approved"})
+    await players[2].send(packet)
+    resp = json.loads(await players[2].recv())
+    for p in players:
+        await p.recv()
+    assert resp["status"]["game_state"] == "WAITING_GUESS"
+
+    await players[0].close()
+    del players[0]
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_PLAYERS"
+
+    for p in players:
+        await p.close()
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_timeout_on_waiting_guess(start_game):
+    # reset to WAITING_PLAYERS after critical player leaves
+    srv, _, players = start_game
+    packet = json.dumps({"type":"new-clue","clue":"FRUIT","count":1})
+    await players[0].send(packet)
+    await players[0].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"clue-approved"})
+    await players[2].send(packet)
+    resp = json.loads(await players[2].recv())
+    for p in players:
+        await p.recv()
+    assert resp["status"]["game_state"] == "WAITING_GUESS"
+
+    await asyncio.sleep(0.06)
+
+    resp = json.loads(await players[0].recv())
+    assert resp["status"]["game_state"] == "WAITING_CLUE"
+
+    for p in players:
+        await p.close()
+    await srv.stop_server()
+
+@pytest.mark.asyncio
+async def test_play_full_game_and_restart(start_game):
+    # reset to WAITING_PLAYERS after critical player leaves
+    srv, _, players = start_game
+    packet = json.dumps({"type":"new-clue","clue":"EVERYTHING","count":8})
+    await players[0].send(packet)
+    await players[0].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"clue-approved"})
+    await players[2].send(packet)
+    resp = json.loads(await players[2].recv())
+    for p in players:
+        await p.recv()
+
+    # send 8 guesses back to back
+    packet = json.dumps({"type":"new-guess","guess":"APPLE"})
+    await players[1].send(packet)
+    await players[1].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"new-guess","guess":"BOMB"})
+    await players[1].send(packet)
+    await players[1].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"new-guess","guess":"CROWN"})
+    await players[1].send(packet)
+    await players[1].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"new-guess","guess":"DAD"})
+    await players[1].send(packet)
+    await players[1].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"new-guess","guess":"EASTER"})
+    await players[1].send(packet)
+    await players[1].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"new-guess","guess":"FLAG"})
+    await players[1].send(packet)
+    await players[1].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"new-guess","guess":"GIANT"})
+    await players[1].send(packet)
+    await players[1].recv()
+    for p in players:
+        await p.recv()
+    packet = json.dumps({"type":"new-guess","guess":"HOME"})
+    await players[1].send(packet)
+    resp = json.loads(await players[1].recv())
+    for p in players:
+        await p.recv()
+    
+    assert resp["status"]["game_state"] == "GAME_OVER"
+    assert resp["status"]["winner"] == "blue"
+
+    packet = json.dumps({"type":"replay-request"})
+    for p in players[:3]:
+        await p.send(packet)
+        await p.recv()
+        for pl in players:
+            await pl.recv()
+
+    await players[3].send(packet)
+    resp = json.loads(await players[3].recv())
+    assert resp["status"]["game_state"] == "WAITING_START"
+
+    for p in players:
+        await p.close()
+    await srv.stop_server()
+
 
 # @pytest.fixture(scope="module")
 # def event_loop():

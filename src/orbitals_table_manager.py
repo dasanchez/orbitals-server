@@ -89,10 +89,12 @@ class OrbitalsTableManager():
                 response = dict()
                 response["type"] = "status"
                 response["status"] = self._table.status()
-                await sender.send(json.dumps(response))
+                # await sender.send(json.dumps(response))
 
                 if self._table.status()["game_state"] == "WAITING_CLUE":
                     await self.broadcast(f'game has started')
+                elif self._table.status()["game_state"] == "WAITING_START":
+                    await self.broadcast(f"{name} has requested start")
             elif data["type"] == "new-clue":
                 name = self._connections[sender]
                 resp = self._table.newClue(name, data["clue"],int(data["count"]))
@@ -144,6 +146,8 @@ class OrbitalsTableManager():
                 await sender.send(json.dumps(response))
                 if self._table.status()["game_state"] == "WAITING_START":
                     await self.broadcast(f'all players are ready to play again')
+                else:
+                    await self.broadcast(f"{name} is ready to play again")
             elif data["type"] == "status-request":
                 response = dict()
                 response["type"] = "status"
@@ -156,7 +160,7 @@ class OrbitalsTableManager():
         msg["status"] = self._table.status()
         msg["msg"] = message
         for player in self._connections.keys():
-            if (msg["status"]["game_state"] == "WAITING_APPROVAL" and player.name() == self._table.getApprover())\
+            if (msg["status"]["game_state"] == "WAITING_APPROVAL" and self._connections[player] == self._table.getApprover())\
                 or msg["status"]["game_state"] == "WAITING_GUESS":
                 hubmsg = msg.copy()
                 hubmsg["status"]["clue"] = self._table.currentClue()

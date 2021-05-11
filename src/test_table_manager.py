@@ -296,6 +296,30 @@ async def test_submit_guess(start_game):
     tm._table.stopTimer()
 
 @pytest.mark.asyncio
+async def test_replay_requests(start_game):
+    tm, players = start_game
+    # 1. play to win
+    packet = {"type":"new-clue","clue":"EVERYTHING","count":8}
+    await tm.playerMessage(players[0],json.dumps(packet))
+    packet = {"type":"clue-approved"}
+    await tm.playerMessage(players[4],json.dumps(packet))
+    for player in players:
+        player.clear_messages()
+    blue_tiles = ["APPLE","BOMB","CROWN","DAD","EASTER","FLAG","GIANT","HOME"]
+    for tile in blue_tiles:
+        packet = {"type":"new-guess","guess":tile}
+        await tm.playerMessage(players[1],json.dumps(packet))
+    response = players[1].latestEntry()
+    assert response["status"]["game_state"] == "GAME_OVER"
+    
+    # submit replay requests
+    packet = json.dumps({"type":"replay-request"})
+    for p in players:
+        await tm.playerMessage(p,packet)
+    resp = players[0].latestEntry()
+    assert resp["status"]["game_state"] == "WAITING_START"
+
+@pytest.mark.asyncio
 async def test_player_leaves_table(start_game):
     tm, players = start_game
     await tm.playerLeft(players[0])

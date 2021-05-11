@@ -6,7 +6,7 @@ import json
 from orbitals_table_manager import OrbitalsTableManager
 
 class Orbitals_WS_Server:
-    def __init__(self, server_port=9090, server_out=None):
+    def __init__(self, server_port=9090, server_out=None,timeout=1.0):
         self.server_object = None
         self.bound_handler = functools.partial(self.handler)
         self.local_print = True
@@ -14,7 +14,7 @@ class Orbitals_WS_Server:
             self.output = server_out
             self.local_print = False
         self.connections = list()
-        self._tm = OrbitalsTableManager()
+        self._tm = OrbitalsTableManager(time_limit=timeout)
         self._server_port = server_port
 
     async def start_server(self, wss=False, chain=None, key=None):
@@ -34,6 +34,7 @@ class Orbitals_WS_Server:
         return self._server_port
 
     async def stop_server(self):
+        self._tm._table.stopTimer()
         self.server_object.ws_server.close()
         await self.server_object.ws_server.wait_closed()
         if not self.server_object.ws_server.is_serving():
@@ -52,6 +53,7 @@ class Orbitals_WS_Server:
                 await self._tm.playerMessage(websocket, msg)
                 # self.data_out("msg", f"{idx}> {msg}")
         finally:
+            await self._tm.playerLeft(websocket)
             self.connections.remove(websocket)
             del websocket
             self.data_out("ev", f"{idx} has left.")

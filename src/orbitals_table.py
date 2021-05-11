@@ -126,6 +126,7 @@ class OrbitalsTable:
             # the player leaving is a hub,
             # switch state to WAITING PLAYERS and reset game status:
             if len(no_hubs) == 1 or self._players[name][1] == 'hub':
+                # print("Stopping timer")
                 self.stopTimer()
                 self._game_state = GameState.WAITING_PLAYERS
                 for team in self._start_game.keys():
@@ -157,10 +158,10 @@ class OrbitalsTable:
         if self.playerTeam(name) == "no-team":
             self._players[name][0] = team
         elif self.playerRole(name) == "hub":
-            self._players[name] = ["team", "no-hub", False]
-            self._game_state = GameState.WAITING_PLAYERS
+            self._players[name] = [team, "no-hub", False]
         else:
-            self._players[name] = ["team", "no-hub", False]
+            self._players[name] = [team, "no-hub", False]
+        self.rosterUpdate()
         return "team accepted"
     
     def roleRequest(self, name: str, role: str):
@@ -182,21 +183,18 @@ class OrbitalsTable:
         # we have a dictionary, collect all the values
         team_roles = [spec[1] for spec in self._players.values() \
             if spec[0] == self.playerTeam(name)]
-        if "hub" not in team_roles:
-            self._players[name][1] = role
-
-        # do we have one hub for both teams?
-        blue_hub = self.filter_players(teams=["blue"], role="hub")
-        blue_no_hubs = self.filter_players(teams=["blue"], role="no-hub")
-        orange_hub = self.filter_players(teams=["orange"], role="hub")
-        orange_no_hubs = self.filter_players(teams=["orange"], role="no-hub")
-
-        if (blue_hub and blue_no_hubs) and (orange_hub and orange_no_hubs):
-            self._game_state = GameState.WAITING_START
-        else:
-            self._game_state = GameState.WAITING_PLAYERS
         
-        return "role accepted"
+        if role == "hub":
+            if "hub" not in team_roles:
+                self._players[name][1] = role
+                self.rosterUpdate()
+                return "role accepted"
+            else:
+                return "role not accepted"
+        else:
+            self._players[name][1] = role
+            self.rosterUpdate()
+            return "role accepted"
 
     def players(self):
         return self._players
@@ -259,7 +257,7 @@ class OrbitalsTable:
 
         self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
         self._timer.start()
-        return False
+        return "clue submitted"
 
     def clueResponse(self, name: str, response: bool=True):
         # is the clue response expected?
@@ -328,7 +326,6 @@ class OrbitalsTable:
             self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
             self._timer.start()
 
-
     def switchTurns(self):
         if self._current_turn == 'blue':
             self._current_turn = 'orange'
@@ -357,6 +354,18 @@ class OrbitalsTable:
         for team in teams:
             players.extend([player for player, data in self._players.items() if data[0] == team and data[1] == role])
         return players
+
+    def rosterUpdate(self):
+        # do we have one hub for both teams?
+        blue_hub = self.filter_players(teams=["blue"], role="hub")
+        blue_no_hubs = self.filter_players(teams=["blue"], role="no-hub")
+        orange_hub = self.filter_players(teams=["orange"], role="hub")
+        orange_no_hubs = self.filter_players(teams=["orange"], role="no-hub")
+
+        if (blue_hub and blue_no_hubs) and (orange_hub and orange_no_hubs):
+            self._game_state = GameState.WAITING_START
+        else:
+            self._game_state = GameState.WAITING_PLAYERS
 
     def readyToRestart(self):
         # check all ready flags
