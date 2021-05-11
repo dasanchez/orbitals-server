@@ -14,7 +14,7 @@ class Orbitals_WS_Server:
             self.output = server_out
             self.local_print = False
         self.connections = list()
-        self._tm = OrbitalsTableManager(time_limit=timeout)
+        self._tm = OrbitalsTableManager(time_limit=timeout,callback=self.server_print)
         self._server_port = server_port
 
     async def start_server(self, wss=False, chain=None, key=None):
@@ -32,6 +32,9 @@ class Orbitals_WS_Server:
 
     def serverPort(self):
         return self._server_port
+    
+    def setPort(self, new_port):
+        self._server_port = new_port
 
     async def stop_server(self):
         self._tm._table.stopTimer()
@@ -43,21 +46,15 @@ class Orbitals_WS_Server:
 
     async def handler(self, websocket, _):
         self.connections.append(websocket)
-        # addr = websocket.remote_address[0]
-        idx = self.connections.index(websocket)
-        self.data_out("ev", f"Player {idx} has joined.")
-        # await websocket.send("HI")
         await self._tm.playerMessage(websocket, json.dumps({"type":"connection"}))
         try:
             async for msg in websocket:
                 await self._tm.playerMessage(websocket, msg)
-                # self.data_out("msg", f"{idx}> {msg}")
         finally:
             await self._tm.playerLeft(websocket)
             self.connections.remove(websocket)
             del websocket
-            self.data_out("ev", f"{idx} has left.")
-
+        
     def data_out(self, data_type="msg", payload=""):
         packet_out = {data_type: payload}
         self.server_print(packet_out)
@@ -70,5 +67,7 @@ class Orbitals_WS_Server:
         if self.local_print:
             print(output)
         else:
-            self.output.append(output)
-            # self.output(output)
+            if isinstance(self.output,list):
+                self.output.append(output)
+            else:
+                self.output(output)
