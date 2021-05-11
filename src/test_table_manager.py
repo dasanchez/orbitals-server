@@ -358,8 +358,7 @@ async def test_broadcast_states():
     p_blue = Player("Blue")
     p_orange_hub = Player("Orange Hub")
     p_orange = Player("Orange")
-    players = [p_blue_hub,p_blue,p_orange_hub,p_orange]
-
+   
     tm = OrbitalsTableManager(time_limit=0.05)
     await tm.playerMessage(p_blue_hub, json.dumps({"type":"name-request","name":p_blue_hub.name()}))
     await tm.playerMessage(p_blue, json.dumps({"type":"name-request","name":p_blue.name()}))
