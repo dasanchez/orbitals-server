@@ -7,7 +7,8 @@ class OrbitalsTableManager():
     def __init__(self, connections=None,
                  player_limit=8,
                  time_limit=1.0,
-                 word_bag=None):
+                 word_bag=None,
+                 callback=None):
         if not connections:
             self._connections = dict()
         else:
@@ -15,6 +16,10 @@ class OrbitalsTableManager():
         self._table = OrbitalsTable(player_limit=player_limit,
                             time_limit=time_limit,
                             callback=self.tableMessage)
+        if callback:
+            self._callback = callback
+        else:
+            self._callback = None
 
     async def playerLeft(self, sender):
         name = self._connections[sender]
@@ -168,6 +173,8 @@ class OrbitalsTableManager():
                 await player.send(json.dumps(hubmsg))
             else: 
                 await player.send(json.dumps(msg))
+        if self._callback:
+            self._callback(msg)
 
     def tableMessage(self, message):
         asyncio.run(self.broadcast(message))
