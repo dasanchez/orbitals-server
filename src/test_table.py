@@ -173,9 +173,7 @@ def test_accept_clue(create_game_and_teams):
     table.startRequest("Ann")
     table.startRequest("Elsa")
     assert table.status()["game_state"] == GameState.WAITING_CLUE
-    assert not table.newClue("Ann", "FRUIT")
-    assert table.currentClue() == "FRUIT"
-    assert table.guessesLeft() == 1
+    assert table.newClue("Ann", "FRUIT") == "clue submitted"
     assert table.status()["game_state"] == GameState.WAITING_APPROVAL
     table.stopTimer()
 
@@ -492,7 +490,7 @@ def test_sad_clue_wrong_role(start_game):
 
 def test_sad_clue_wrong_state(start_game):
     table = start_game
-    assert not table.newClue("Ann", "FRUIT")
+    assert table.newClue("Ann", "FRUIT") == "clue submitted"
     assert table.status()["game_state"] == GameState.WAITING_APPROVAL
     assert table.newClue("Ann", "FRUIT") == "not awaiting clues, state: WAITING_APPROVAL"
     table.stopTimer()
