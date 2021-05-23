@@ -92,8 +92,9 @@ class OrbitalsTerminal:
 
     def send_message(self, buffer_data):
         payload = buffer_data.text
-        get_event_loop().create_task(self.owserver.broadcast(payload))
-        self.show_message(["ev", f"Server> {payload}"])
+        packet = json.dumps({"type":"broadcast","msg":f"[Server] {payload}"})
+        get_event_loop().create_task(self.owserver.broadcast(packet))
+        self.show_message({"ev": f"[Server] {payload}"})
 
     def show_message(self, msg):
         if "msg" in msg:
@@ -101,6 +102,6 @@ class OrbitalsTerminal:
         elif "status" in msg:
             self.status_textarea.text = msg["status"]
         elif "ev" in msg:
-            self.in_messages_textarea.buffer.insert_text(msg["ev"] + '\n')
+            self.in_messages_textarea.buffer.insert_text(str(msg["ev"] + '\n'))
     
 _ = OrbitalsTerminal()

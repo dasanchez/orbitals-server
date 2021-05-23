@@ -97,6 +97,8 @@ class OrbitalsTable:
 
         if self._callback:
             self._callback("timeout")
+        else:
+            print("timeout")
         return
 
     def playerJoins(self, name: str):
@@ -107,7 +109,7 @@ class OrbitalsTable:
             # player name exists
             return "player name exists"
         else:
-            self._players[name] = ["no-team", "no-hub", False]
+            self._players[name] = ["no-team", "orbital", False]
             return "name accepted"
        
     def playerLeaves(self, name: str):
@@ -118,15 +120,14 @@ class OrbitalsTable:
             self._game_state == GameState.WAITING_GUESS or\
             self._game_state == GameState.GAME_OVER:
             
-            # get team's no-hubs
-            no_hubs = self.filter_players(teams=[self.playerTeam(name)], role="no-hub")
+            # get team's orbitals
+            no_hubs = self.filter_players(teams=[self.playerTeam(name)], role="orbital")
 
-            # if only one no-hub remains in the team
+            # if only one orbital remains in the team
             # or
             # the player leaving is a hub,
             # switch state to WAITING PLAYERS and reset game status:
             if len(no_hubs) == 1 or self._players[name][1] == 'hub':
-                # print("Stopping timer")
                 self.stopTimer()
                 self._game_state = GameState.WAITING_PLAYERS
                 for team in self._start_game.keys():
@@ -158,9 +159,9 @@ class OrbitalsTable:
         if self.playerTeam(name) == "no-team":
             self._players[name][0] = team
         elif self.playerRole(name) == "hub":
-            self._players[name] = [team, "no-hub", False]
+            self._players[name] = [team, "orbital", False]
         else:
-            self._players[name] = [team, "no-hub", False]
+            self._players[name] = [team, "orbital", False]
         self.rosterUpdate()
         return "team accepted"
     
@@ -207,13 +208,13 @@ class OrbitalsTable:
 
     def startRequest(self, name: str):
         # do we have at least one player in each role?
-        # 1 hub and 1 no-hub per team
+        # 1 hub and 1 orbital per team
         blue_roles = [role[1] for (player, role) in self._players.items() if self._players[player][0] == 'blue']
         orange_roles = [role[1] for (player, role) in self._players.items() if self._players[player][0] == 'orange']
         if not ("hub" in blue_roles and "hub" in orange_roles):
             return "hub roles are not filled"
-        elif not ("no-hub" in blue_roles and "no-hub" in orange_roles):
-            return "no-hub roles are not filled"
+        elif not ("orbital" in blue_roles and "orbital" in orange_roles):
+            return "orbital roles are not filled"
 
         elif self.playerRole(name) != 'hub':
             return "only hub roles can request start" 
@@ -245,7 +246,7 @@ class OrbitalsTable:
         if self.playerTeam(name) != self._current_turn:
             return "it is the other team's turn"
         
-        if self.playerRole(name) == 'no-hub':
+        if self.playerRole(name) == 'orbital':
             return "only hub can submit clues"
 
         self._timer.cancel()
@@ -281,7 +282,11 @@ class OrbitalsTable:
         
         self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
         self._timer.start()
-        return False
+        
+        if not response:
+            return "clue was rejected"
+        else:
+            return "clue was accepted"
 
     def newGuess(self, name: str, guess: str):
         if self._game_state != GameState.WAITING_GUESS:
@@ -358,9 +363,9 @@ class OrbitalsTable:
     def rosterUpdate(self):
         # do we have one hub for both teams?
         blue_hub = self.filter_players(teams=["blue"], role="hub")
-        blue_no_hubs = self.filter_players(teams=["blue"], role="no-hub")
+        blue_no_hubs = self.filter_players(teams=["blue"], role="orbital")
         orange_hub = self.filter_players(teams=["orange"], role="hub")
-        orange_no_hubs = self.filter_players(teams=["orange"], role="no-hub")
+        orange_no_hubs = self.filter_players(teams=["orange"], role="orbital")
 
         if (blue_hub and blue_no_hubs) and (orange_hub and orange_no_hubs):
             self._game_state = GameState.WAITING_START

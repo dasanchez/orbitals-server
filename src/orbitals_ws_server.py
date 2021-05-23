@@ -10,12 +10,19 @@ class Orbitals_WS_Server:
         self.server_object = None
         self.bound_handler = functools.partial(self.handler)
         self.local_print = True
+        self._timeout = timeout
         if server_out:
             self.output = server_out
             self.local_print = False
         self.connections = list()
         self._tm = OrbitalsTableManager(time_limit=timeout,callback=self.server_print)
         self._server_port = server_port
+
+    def serverPort(self):
+        return self._server_port
+    
+    def setPort(self, new_port):
+        self._server_port = new_port
 
     async def start_server(self, wss=False, chain=None, key=None):
         if wss:
@@ -30,14 +37,10 @@ class Orbitals_WS_Server:
         if self.server_object.ws_server.is_serving():
             self.data_out(data_type="status", payload="Server is running")
 
-    def serverPort(self):
-        return self._server_port
-    
-    def setPort(self, new_port):
-        self._server_port = new_port
-
     async def stop_server(self):
         self._tm._table.stopTimer()
+        self._tm = OrbitalsTableManager(time_limit=self._timeout,callback=self.server_print)
+        self.connections = list()
         self.server_object.ws_server.close()
         await self.server_object.ws_server.wait_closed()
         if not self.server_object.ws_server.is_serving():
@@ -51,9 +54,10 @@ class Orbitals_WS_Server:
             async for msg in websocket:
                 await self._tm.playerMessage(websocket, msg)
         finally:
-            await self._tm.playerLeft(websocket)
-            self.connections.remove(websocket)
-            del websocket
+            if self.server_object.ws_server.is_serving():
+                await self._tm.playerLeft(websocket)
+                self.connections.remove(websocket)
+                del websocket
         
     def data_out(self, data_type="msg", payload=""):
         packet_out = {data_type: payload}
@@ -65,7 +69,8 @@ class Orbitals_WS_Server:
 
     def server_print(self, output):
         if self.local_print:
-            print(output)
+            pass
+            # print(output)
         else:
             if isinstance(self.output,list):
                 self.output.append(output)

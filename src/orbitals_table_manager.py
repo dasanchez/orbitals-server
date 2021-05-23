@@ -22,15 +22,16 @@ class OrbitalsTableManager():
             self._callback = None
 
     async def playerLeft(self, sender):
-        name = self._connections[sender]
-        self._table.playerLeaves(name)
-        del self._connections[sender]
-        await self.broadcast(f"{name} has left")
+        if sender in self._connections.keys():
+            name = self._connections[sender]
+            self._table.playerLeaves(name)
+            del self._connections[sender]
+            await self.broadcast(f"{name} has left")
 
     async def playerMessage(self, sender, packet):
         data = json.loads(packet)
         if sender not in self._connections.keys():
-            self._connections[sender] = ""
+            # self._connections[sender] = ""
 
             if data["type"] == "name-request":
                 resp = self._table.playerJoins(data["name"])
@@ -38,6 +39,7 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
+                response["name"] = data["name"]
 
                 await sender.send(json.dumps(response))
                 
@@ -50,26 +52,15 @@ class OrbitalsTableManager():
                 response["msg"] = "provide name"
                 await sender.send(json.dumps(response))
         else:
-            if data["type"] == "name-request":
-                resp = self._table.playerJoins(data["name"])
-                response = dict()
-                response["type"] = "msg"
-                response["msg"] = resp
-                response["status"] = self._table.status()
-
-                await sender.send(json.dumps(response))
-                
-                if resp == "name accepted":
-                    self._connections[sender] = data["name"]
-                    await self.broadcast(f'{data["name"]} has joined the game')
-            elif data["type"] == "team-request":
+            if data["type"] == "team-request":
                 name = self._connections[sender]
                 resp = self._table.teamRequest(name, data["team"])
+                # print(f"{name} is requesting team {data['team']}")
                 response = dict()
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
-
+                response["team"] = data["team"]
                 await sender.send(json.dumps(response))
                 
                 if resp == "team accepted":
@@ -82,6 +73,7 @@ class OrbitalsTableManager():
                 response["type"] = "msg"
                 response["msg"] = resp
                 response["status"] = self._table.status()
+                response["role"] = data["role"]
                 await sender.send(json.dumps(response))
                 
                 if resp == "role accepted":

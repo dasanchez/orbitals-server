@@ -90,7 +90,7 @@ def test_two_hubs_requested(create_game_and_teams):
 def test_second_hub_requested_same_team(create_game_and_teams):
     table = create_game_and_teams
     table.roleRequest("Finn", "hub")
-    assert table.players()["Finn"][1] == "no-hub"
+    assert table.players()["Finn"][1] == "orbital"
 
 def test_start_requests(create_game_and_teams):
     table = create_game_and_teams
@@ -446,7 +446,7 @@ def test_start_game_if_conditions_met():
     table.roleRequest("Ann", "hub")
     assert table.startRequest("Ann") == "hub roles are not filled"
     table.roleRequest("Bea", "hub")
-    assert table.startRequest("Ann") == "no-hub roles are not filled"
+    assert table.startRequest("Ann") == "orbital roles are not filled"
     table.teamRequest("Bob", "orange")
     assert table.startRequest("Bob") == "only hub roles can request start"
     assert not table.startRequest("Ann")
