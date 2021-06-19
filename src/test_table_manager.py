@@ -111,7 +111,7 @@ async def tm_with_players_pre_start():
 
 @pytest.fixture
 async def start_game():
-    tm = OrbitalsTableManager(player_limit=8, time_limit=1)
+    tm = OrbitalsTableManager(player_limit=8, time_limit=3)
     players = list()
     player_Ann = Player("Ann")
     players.append(player_Ann)
@@ -351,6 +351,23 @@ async def test_broadcasts():
     await tm.playerMessage(player_1,json.dumps(packet))
     assert player_1.latestEntry()["msg"] == "Ann is now a hub"
     assert player_1.latestEntry()["msg"] == "role accepted"
+
+@pytest.mark.asyncio
+async def test_tick(start_game):
+    tm, players = start_game
+
+    await asyncio.sleep(1)    
+    assert len(players[0]._messages) > 0
+    resp = players[0].latestEntry()
+    assert resp["type"] == "tick"
+    assert resp["time_left"] == 2
+    await asyncio.sleep(1)    
+    assert len(players[0]._messages) > 0
+    resp = players[0].latestEntry()
+    assert resp["type"] == "tick"
+    assert resp["time_left"] == 1
+
+    tm._table.stopTimer()
 
 @pytest.mark.asyncio
 async def test_broadcast_states():

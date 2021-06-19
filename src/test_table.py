@@ -460,7 +460,7 @@ def test_cap_guess_count_unexposed_tiles(create_game_and_teams):
     table.newClue("Ann", "COUNTRY", 12)
     assert table.guessesLeft() == 8
     table.stopTimer()
-    
+
 def test_sad_player_limit_reached():
     table = OrbitalsTable(player_limit=6)
     table.playerJoins("Ann")
