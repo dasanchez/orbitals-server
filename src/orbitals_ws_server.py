@@ -40,7 +40,11 @@ class Orbitals_WS_Server:
     async def stop_server(self):
         self._tm._table.stopTimer()
         self._tm = OrbitalsTableManager(time_limit=self._timeout,callback=self.server_print)
+        # self.connections = list()
+        for conn in self.connections:
+            await conn.close()
         self.connections = list()
+        
         self.server_object.ws_server.close()
         await self.server_object.ws_server.wait_closed()
         if not self.server_object.ws_server.is_serving():

@@ -36,6 +36,7 @@ class OrbitalsSector:
         self._players = OrbitalsPlayers()
         self._sectorName = name
         self._sectorSymbol = symbol
+        self._playerNames = set()
 
 
     async def newMessage(self, websocket, data):
@@ -104,6 +105,14 @@ class OrbitalsSector:
         await orbComms.publishPlayers(self._players.getPlayerData(),
                                       self._players.enoughPlayers(), self._users)
         await orbComms.publishState(self._gameInfo, self._players.getPlayers())
+
+    def newPlayerName(self, name):
+        if name not in self._playerNames:
+            self._playerNames.add(name)
+            sectorPacket = {'type': 'response',
+                'msg': 'joined-sector',
+                'sector': self._sectorName}
+            return sectorPacket
 
     async def newPlayer(self, name, websocket):
         """ tries to register a new player in sector """

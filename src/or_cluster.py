@@ -15,14 +15,79 @@ sectorSymbols = ['α', 'β', 'γ', 'δ',
 class OrbitalsCluster:
     """ Top level class """
 
-    def __init__(self, sectorCount = 4):
+    def __init__(self, sectorCount = 4, callback=None):
         # initialize set of quadrants
         self._sectors = set()
         self._userSectors = dict()
         self._sectorDict = dict()
         self._userNames = dict()
+        self._playerNames = set()
         self.populateSectors(sectorCount)
-        
+        self._local_print = True
+        self._callback=None
+        if callback:
+            self._local_print = False
+            self._callback=callback
+        payload = json.loads('[{ \
+                "type": "event", \
+                "to"  : "all", \
+                "data": "cluster started" \
+            }]')
+        self.cluster_print(payload)
+
+    def cluster_print(self, payload):
+        if self._local_print:
+            print(json.dumps(payload, indent=3))
+        else:
+            self._callback(payload)
+    
+    def newPlayer(self, name=""):
+        if len(name) > 0:
+            if name not in self._playerNames:
+                self._playerNames.add(name)
+                data = f"{name} has joined the cluster"
+                payload = json.loads(f'[{{ \
+                    "type": "event", \
+                    "to"  : "all", \
+                    "data": "{data}" \
+                    }}]')
+                self.cluster_print(payload)
+
+                # send cluster data to new player
+                response = json.loads(f'[{{ \
+                    "type": "msg", \
+                    "to"  : "{name}", \
+                    "data": "name-accepted" \
+                    }}]')
+                # self.cluster_print(response)
+                return response
+            else:
+                return "please enter a different name"
+        else:
+            return "please enter a valid name"
+    
+    def playerLeaves(self, name=""):
+        print("playerLeaves function called:" + str(self._playerNames))
+        if len(name) > 0:
+            if name in self._playerNames:
+                self._playerNames.remove(name)
+                print(self._playerNames)
+
+    def playerMessage(self, playerName, data):
+        if data['type'] == 'join-sector':
+            # get player to join the sector
+            requestedSector = data['sector']
+            sector = self._sectorDict[requestedSector]
+            if sector:
+                # await sector.newPlayer(self._userNames[websocket], websocket)
+                # self._userSectors[websocket] = sector
+                response = sector.newPlayerName(playerName)
+                return response
+                # return f"Player has joined sector {requestedSector}"
+            else:
+                return f"{requestedSector} does not exist"
+            
+
     def populateSectors(self, count):
         # populate quadrant set
         for i in range(count):
@@ -163,3 +228,6 @@ class OrbitalsCluster:
         for user in self._userSectors.keys():
             if self._userNames.get(user) and not self._userSectors[user]:
                 await user.send(msg)
+
+    def getUserNames(self):
+        return self._userNames

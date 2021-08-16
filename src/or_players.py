@@ -45,7 +45,7 @@ class OrbitalsPlayers:
         names = {player.getName() for player in self._players}
         return name in names
 
-    def addPlayer(self, name, websocket):
+    def addPlayer(self, name, websocket=None):
         """
         If the requested name isn't taken yet:
             - Adds new or_player to _players list
@@ -57,10 +57,19 @@ class OrbitalsPlayers:
 
         if not self.nameExists(name):
             newPlayer = OrbitalsPlayer(name)
-            newPlayer.setWebSocket(websocket)
+            if websocket:
+                newPlayer.setWebSocket(websocket)
             self._players.add(newPlayer)
-            return True, 'added'
+            return True, f"Welcome, {name}"
         return False, 'Name exists'
+
+    def removePlayerWithName(self, *, name=""):
+        player = self.getPlayerByName(name)
+        if player:
+            self._players.remove(player)
+            return True, f"Player {name} removed"
+        else:
+            return False, f"Player {name} does not exist"
 
     def removePlayer(self, websocket):
         """
@@ -136,6 +145,12 @@ class OrbitalsPlayers:
             if player.getWebSocket() == websocket:
                 return player
         return None
+
+    def getPlayerByName(self, name):
+        for player in self._players:
+            if player.getName() == name:
+                return player
+        return None 
 
     def joinTeam(self, websocket, team):
         """

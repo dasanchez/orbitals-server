@@ -168,5 +168,17 @@ class OrbitalsTableManager():
         if self._callback:
             self._callback(msg)
 
+    async def tick(self, time_left):
+        msg = dict()
+        msg["type"] = "tick"
+        msg["time_left"] = time_left
+        for player in self._connections.keys():
+            await player.send(json.dumps(msg))
+        if self._callback:
+            self._callback(msg)
+
     def tableMessage(self, message):
-        asyncio.run(self.broadcast(message))
+        if message[0] == "timeout":
+            asyncio.run(self.broadcast("timeout"))
+        elif message[0] == "tick":
+            asyncio.run(self.tick(message[1]))
