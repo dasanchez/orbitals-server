@@ -28,7 +28,8 @@ def getResponse(fn, message_dict):
 
 @pytest.fixture
 async def tm_with_players():
-    tm = OrbitalsTableManager(player_limit=4, time_limit=1)
+    # tm = OrbitalsTableManager(player_limit=4, time_limit=1)
+    tm = OrbitalsTableManager(player_limit=4)
     players = list()
     player_Ann = Player("Ann")
     players.append(player_Ann)
@@ -57,7 +58,8 @@ async def tm_with_players():
 
 @pytest.fixture
 async def tm_with_players_pre_start():
-    tm = OrbitalsTableManager(player_limit=8, time_limit=1)
+    # tm = OrbitalsTableManager(player_limit=8, time_limit=1)
+    tm = OrbitalsTableManager(player_limit=8)
     players = list()
     player_Ann = Player("Ann")
     players.append(player_Ann)
@@ -111,7 +113,8 @@ async def tm_with_players_pre_start():
 
 @pytest.fixture
 async def start_game():
-    tm = OrbitalsTableManager(player_limit=8, time_limit=3)
+    # tm = OrbitalsTableManager(player_limit=8, time_limit=3)
+    tm = OrbitalsTableManager(player_limit=8)
     players = list()
     player_Ann = Player("Ann")
     players.append(player_Ann)
@@ -238,7 +241,7 @@ async def test_start_request(tm_with_players_pre_start):
     packet = {"type": "status-request"}
     await tm.playerMessage(players[0], json.dumps(packet))
     assert players[0].latestEntry()["status"]["game_state"] == "WAITING_CLUE"
-    tm._table.stopTimer()
+    # tm._table.stopTimer()
 
 @pytest.mark.asyncio
 async def test_submit_clue(start_game):
@@ -248,7 +251,7 @@ async def test_submit_clue(start_game):
     packet = {"type":"status-request"}
     await tm.playerMessage(players[0],json.dumps(packet))
     assert players[0].latestEntry()["status"]["game_state"] == "WAITING_APPROVAL"
-    tm._table.stopTimer()
+    # tm._table.stopTimer()
 
 @pytest.mark.asyncio
 async def test_clue_approval(start_game):
@@ -262,7 +265,7 @@ async def test_clue_approval(start_game):
     packet = {"type":"status-request"}
     await tm.playerMessage(players[0],json.dumps(packet))
     assert players[0].latestEntry()["status"]["game_state"] == "WAITING_GUESS"
-    tm._table.stopTimer()
+    # tm._table.stopTimer()
 
 @pytest.mark.asyncio
 async def test_clue_rejection(start_game):
@@ -278,7 +281,7 @@ async def test_clue_rejection(start_game):
     response = players[0].latestEntry()
     assert response["status"]["game_state"] == "WAITING_CLUE"
     assert response["status"]["current_turn"] == "blue"
-    tm._table.stopTimer()
+    # tm._table.stopTimer()
 
 @pytest.mark.asyncio
 async def test_submit_guess(start_game):
@@ -293,7 +296,7 @@ async def test_submit_guess(start_game):
     await tm.playerMessage(players[1],json.dumps(packet))
     response = players[1].latestEntry()
     assert response["status"]["tiles"]["APPLE"] == "blue"
-    tm._table.stopTimer()
+    # tm._table.stopTimer()
 
 @pytest.mark.asyncio
 async def test_replay_requests(start_game):
@@ -352,22 +355,22 @@ async def test_broadcasts():
     assert player_1.latestEntry()["msg"] == "Ann is now a hub"
     assert player_1.latestEntry()["msg"] == "role accepted"
 
-@pytest.mark.asyncio
-async def test_tick(start_game):
-    tm, players = start_game
+# @pytest.mark.asyncio
+# async def test_tick(start_game):
+#     tm, players = start_game
 
-    await asyncio.sleep(1)    
-    assert len(players[0]._messages) > 0
-    resp = players[0].latestEntry()
-    assert resp["type"] == "tick"
-    assert resp["time_left"] == 2
-    await asyncio.sleep(1)    
-    assert len(players[0]._messages) > 0
-    resp = players[0].latestEntry()
-    assert resp["type"] == "tick"
-    assert resp["time_left"] == 1
+#     await asyncio.sleep(1)    
+#     assert len(players[0]._messages) > 0
+#     resp = players[0].latestEntry()
+#     assert resp["type"] == "tick"
+#     assert resp["time_left"] == 2
+#     await asyncio.sleep(1)    
+#     assert len(players[0]._messages) > 0
+#     resp = players[0].latestEntry()
+#     assert resp["type"] == "tick"
+#     assert resp["time_left"] == 1
 
-    tm._table.stopTimer()
+#     tm._table.stopTimer()
 
 @pytest.mark.asyncio
 async def test_broadcast_states():
@@ -376,7 +379,8 @@ async def test_broadcast_states():
     p_orange_hub = Player("Orange Hub")
     p_orange = Player("Orange")
    
-    tm = OrbitalsTableManager(time_limit=0.05)
+    # tm = OrbitalsTableManager(time_limit=0.05)
+    tm = OrbitalsTableManager()
     await tm.playerMessage(p_blue_hub, json.dumps({"type":"name-request","name":p_blue_hub.name()}))
     await tm.playerMessage(p_blue, json.dumps({"type":"name-request","name":p_blue.name()}))
     await tm.playerMessage(p_orange_hub, json.dumps({"type":"name-request","name":p_orange_hub.name()}))
@@ -415,37 +419,41 @@ async def test_broadcast_states():
     await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"APPLE"}))
     assert p_orange.latestEntry()["status"]["game_state"] == "WAITING_CLUE"
     # WAITING_CLUE -> WAITING_CLUE for opposite team due to timeout
-    await asyncio.sleep(0.06)
+    # await asyncio.sleep(0.06)
     # pprint(p_orange._messages)
-    broadcast = p_orange.latestEntry()
-    assert broadcast["msg"] == "timeout"
-    assert broadcast["status"]["current_turn"] == "blue"
-    # WAITING_CLUE -> WAITING APPROVAL
-    await tm.playerMessage(p_blue_hub,json.dumps({"type":"new-clue","clue":"EVERYTHING","count":7}))
-    assert p_blue.latestEntry()["status"]["game_state"] == "WAITING_APPROVAL"
-    # WAITING APPROVAL -> WAITING GUESS
-    await tm.playerMessage(p_orange_hub,json.dumps({"type":"clue-approved"}))
-    status = p_blue.latestEntry()["status"]
-    assert status["game_state"] == "WAITING_GUESS"
-    assert status["guesses_left"] == 7
-    # WAITING GUESS -> GAME_OVER
-    await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"BOMB"}))
-    await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"CROWN"}))
-    await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"DAD"}))
-    await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"EASTER"}))
-    await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"FLAG"}))
-    await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"GIANT"}))
-    await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"HOME"}))
-    status = p_blue.latestEntry()["status"]
-    assert status["game_state"] == "GAME_OVER"
-    assert status["winner"] == "blue"
-    # GAME_OVER -> WAITING_START
-    await tm.playerMessage(p_blue_hub, json.dumps({"type":"replay-request"}))
-    await tm.playerMessage(p_blue, json.dumps({"type":"replay-request"}))
-    await tm.playerMessage(p_orange, json.dumps({"type":"replay-request"}))
-    await tm.playerMessage(p_orange_hub, json.dumps({"type":"replay-request"}))        
-    status = p_blue.latestEntry()["status"]
-    assert status["game_state"] == "WAITING_START"
+    # broadcast = p_orange.latestEntry()
+    # assert broadcast["msg"] == "timeout"
+    # assert broadcast["status"]["current_turn"] == "blue"
     
-    tm._table.stopTimer()
+    # WAITING_CLUE -> WAITING APPROVAL
+    # await tm.playerMessage(p_blue_hub,json.dumps({"type":"new-clue","clue":"EVERYTHING","count":7}))
+    # assert p_blue.latestEntry()["status"]["game_state"] == "WAITING_APPROVAL"
+
+    # WAITING APPROVAL -> WAITING GUESS
+    # await tm.playerMessage(p_orange_hub,json.dumps({"type":"clue-approved"}))
+    # status = p_blue.latestEntry()["status"]
+    # assert status["game_state"] == "WAITING_GUESS"
+    # assert status["guesses_left"] == 7
+    
+    # WAITING GUESS -> GAME_OVER
+    # await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"BOMB"}))
+    # await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"CROWN"}))
+    # await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"DAD"}))
+    # await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"EASTER"}))
+    # await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"FLAG"}))
+    # await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"GIANT"}))
+    # await tm.playerMessage(p_blue,json.dumps({"type":"new-guess","guess":"HOME"}))
+    # status = p_blue.latestEntry()["status"]
+    # assert status["game_state"] == "GAME_OVER"
+    # assert status["winner"] == "blue"
+    
+    # GAME_OVER -> WAITING_START
+    # await tm.playerMessage(p_blue_hub, json.dumps({"type":"replay-request"}))
+    # await tm.playerMessage(p_blue, json.dumps({"type":"replay-request"}))
+    # await tm.playerMessage(p_orange, json.dumps({"type":"replay-request"}))
+    # await tm.playerMessage(p_orange_hub, json.dumps({"type":"replay-request"}))        
+    # status = p_blue.latestEntry()["status"]
+    # assert status["game_state"] == "WAITING_START"
+    
+    # tm._table.stopTimer()
     
