@@ -19,7 +19,6 @@ class OrbitalsBoard:
         self._tile_count = tile_count
         self._first_turn = ''
         
-
     def readWords(self):
         """
         Reads words form a text file and assigns them to _fullDeck set

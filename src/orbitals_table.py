@@ -8,8 +8,7 @@ Tracks:
 """
 from enum import Enum, auto
 
-from collections import Counter
-from threading import Timer
+# from threading import Timer
 from orbitals_board import OrbitalsBoard
 
 class GameState(str, Enum):
@@ -20,19 +19,18 @@ class GameState(str, Enum):
     WAITING_APPROVAL = "WAITING_APPROVAL"
     GAME_OVER = "GAME_OVER"
 
-
 class OrbitalsTable:
     def __init__(self, player_limit: int=16,\
                        words_source=None,\
                        tile_count: int=16,\
-                       time_limit: float=30,\
+                    #    time_limit: float=30,\
                        callback=None):
         self._players = dict()
         self._player_limit = player_limit
-        self._time_limit = time_limit
-        self._timer = None
-        self._tick_timer = None
-        self._time_left = 0
+        # self._time_limit = time_limit
+        # self._timer = None
+        # self._tick_timer = None
+        # self._time_left = 0
         self._start_game = {"blue": False, "orange": False}
         self._game_state = GameState.WAITING_PLAYERS
         self._board = OrbitalsBoard(word_bag=words_source, tile_count=tile_count)
@@ -58,7 +56,7 @@ class OrbitalsTable:
         """
         status = dict()
         status["player_limit"] = self._player_limit
-        status["time_limit"] = self._time_limit
+        # status["time_limit"] = self._time_limit
         status["players"] = self._players
         status["game_state"] = self._game_state
         status["start_game"] = self._start_game
@@ -72,48 +70,45 @@ class OrbitalsTable:
 
         return status
 
-    def setTimeLimit(self, *, seconds: float):
-        # Set timeout in seconds
-        self._time_limit = seconds
+    # def setTimeLimit(self, *, seconds: float):
+    #     # Set timeout in seconds
+    #     self._time_limit = seconds
 
-    def timerStatus(self):
-        return self._timer.is_alive()
+    # def timerStatus(self):
+    #     return self._timer.is_alive()
 
-    def stopTimer(self):
-        if self._tick_timer:
-            self._tick_timer.cancel()
-        if self._timer:
-            self._timer.cancel()
-        # self._tick_timer = None
-        # self._timer = None
+    # def stopTimer(self):
+    #     if self._tick_timer:
+    #         self._tick_timer.cancel()
+    #     if self._timer:
+    #         self._timer.cancel()
 
-    def tick(self):
-        if self._timer.is_alive():
-            self._time_left -= 1
-            if self._callback:
-                self._callback(["tick", self._time_left])
-            self._tick_timer = Timer(interval=1.0, function=self.tick)
-            self._tick_timer.start()
+    # def tick(self):
+    #     if self._timer.is_alive():
+    #         self._time_left -= 1
+    #         if self._callback:
+    #             self._callback(["tick", self._time_left])
+    #         self._tick_timer = Timer(interval=1.0, function=self.tick)
+    #         self._tick_timer.start()
 
-    def timerTimeout(self):
-        self._timer.cancel()
-            
-        if self._game_state == GameState.WAITING_APPROVAL:
-            self._game_state = GameState.WAITING_GUESS
-        else:
-            self._game_state = GameState.WAITING_CLUE
-            self.switchTurns()
+    # def timerTimeout(self):
+        # self._timer.cancel()
+        # if self._game_state == GameState.WAITING_APPROVAL:
+        #     self._game_state = GameState.WAITING_GUESS
+        # else:
+        #     self._game_state = GameState.WAITING_CLUE
+        #     self.switchTurns()
 
-        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
-        if self._time_limit > 1.0:
-            self._time_limit = self._time_limit
-            self._tick_timer = Timer(interval=1.0, function=self.tick)
-            self._tick_timer.start()
-        self._timer.start()
+        # self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        # if self._time_limit > 1.0:
+        #     self._time_limit = self._time_limit
+        #     self._tick_timer = Timer(interval=1.0, function=self.tick)
+        #     self._tick_timer.start()
+        # self._timer.start()
 
-        if self._callback:
-            self._callback(["timeout"])
-        return
+        # if self._callback:
+        #     self._callback(["timeout"])
+        # return
 
     def playerJoins(self, name: str):
         if len(self._players) >= self._player_limit:
@@ -142,7 +137,7 @@ class OrbitalsTable:
             # the player leaving is a hub,
             # switch state to WAITING PLAYERS and reset game status:
             if len(no_hubs) == 1 or self._players[name][1] == 'hub':
-                self.stopTimer()
+                # self.stopTimer()
                 self._game_state = GameState.WAITING_PLAYERS
                 for team in self._start_game.keys():
                     self._start_game[team] = False
@@ -250,12 +245,12 @@ class OrbitalsTable:
         # set new state
         self._game_state = GameState.WAITING_CLUE
         
-        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
-        if self._time_limit > 1.0:
-            self._time_left = self._time_limit
-            self._tick_timer = Timer(interval=1.0, function=self.tick)
-            self._tick_timer.start()
-        self._timer.start()
+        # self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        # if self._time_limit > 1.0:
+        #     self._time_left = self._time_limit
+        #     self._tick_timer = Timer(interval=1.0, function=self.tick)
+        #     self._tick_timer.start()
+        # self._timer.start()
         
         
     def newClue(self, name: str, clue: str, guess_count: int=1):
@@ -268,7 +263,7 @@ class OrbitalsTable:
         if self.playerRole(name) == 'orbital':
             return "only hub can submit clues"
 
-        self.stopTimer()
+        # self.stopTimer()
 
         # while self._timer.is_alive() or self._tick_timer.is_alive():
             # pass
@@ -297,19 +292,19 @@ class OrbitalsTable:
         if self.playerRole(name) != 'hub':
             return "only hub can respond to clues"
 
-        self.stopTimer()
+        # self.stopTimer()
 
         if not response:
             self._game_state = GameState.WAITING_CLUE
         else:
             self._game_state = GameState.WAITING_GUESS
         
-        self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
-        if self._time_limit > 1.0:
-            self._time_left = self._time_limit
-            self._tick_timer = Timer(interval=1.0, function=self.tick)
-            self._tick_timer.start()
-        self._timer.start()
+        # self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+        # if self._time_limit > 1.0:
+        #     self._time_left = self._time_limit
+        #     self._tick_timer = Timer(interval=1.0, function=self.tick)
+        #     self._tick_timer.start()
+        # self._timer.start()
         
         if not response:
             return "clue was rejected"
@@ -336,7 +331,7 @@ class OrbitalsTable:
         # has this team won?
         winner = self._board.winner()
         if winner:
-            self.stopTimer()
+            # self.stopTimer()
             self._winning_team = winner
             self._game_state = GameState.GAME_OVER
             self._current_turn = ''
@@ -350,18 +345,18 @@ class OrbitalsTable:
         self._current_guess_count -= 1
         # switch if we're out of guesses
         if self._current_guess_count == 0:
-            self.stopTimer()
+            # self.stopTimer()
             self._game_state = GameState.WAITING_CLUE
             self._current_clue = ""
             self.switchTurns()
 
             # start timer
-            self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
-            if self._time_limit > 1.0:
-                self._time_left = self._time_limit
-                self._tick_timer = Timer(interval=1.0, function=self.tick)
-                self._tick_timer.start()
-            self._timer.start()
+            # self._timer = Timer(interval=self._time_limit, function=self.timerTimeout)
+            # if self._time_limit > 1.0:
+            #     self._time_left = self._time_limit
+            #     self._tick_timer = Timer(interval=1.0, function=self.tick)
+            #     self._tick_timer.start()
+            # self._timer.start()
 
     def switchTurns(self):
         if self._current_turn == 'blue':
