@@ -268,6 +268,25 @@ async def test_clue_approval(start_game):
     # tm._table.stopTimer()
 
 @pytest.mark.asyncio
+async def test_end_turn(start_game):
+    tm, players = start_game
+    packet = {"type":"new-clue","clue":"FRUIT","count":10}
+    await tm.playerMessage(players[0],json.dumps(packet))
+    packet = {"type":"clue-approved"}
+    await tm.playerMessage(players[4],json.dumps(packet))
+    packet = {"type": "status-request"}
+    await tm.playerMessage(players[0],json.dumps(packet))
+    assert players[0].latestEntry()["status"]["game_state"] == "WAITING_GUESS"
+    packet = {"type": "new-guess", "guess":"APPLE"}
+    await tm.playerMessage(players[1],json.dumps(packet))
+    assert players[0].latestEntry()["status"]["game_state"] == "WAITING_GUESS"
+    packet = {"type":"end-turn"}
+    await tm.playerMessage(players[1],json.dumps(packet))
+    status = players[0].latestEntry()
+    assert status["status"]["game_state"] == "WAITING_CLUE"
+    assert status["status"]["current_turn"] == "orange"    
+
+@pytest.mark.asyncio
 async def test_clue_rejection(start_game):
     tm, players = start_game
     packet = {"type":"new-clue","clue":"FRUIT","count":1}

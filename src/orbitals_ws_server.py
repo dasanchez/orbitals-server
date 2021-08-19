@@ -15,7 +15,8 @@ class Orbitals_WS_Server:
             self.output = server_out
             self.local_print = False
         self.connections = list()
-        self._tm = OrbitalsTableManager(time_limit=timeout,callback=self.server_print)
+        # self._tm = OrbitalsTableManager(time_limit=timeout,callback=self.server_print)
+        self._tm = OrbitalsTableManager(callback=self.server_print)
         self._server_port = server_port
 
     def serverPort(self):
@@ -38,12 +39,12 @@ class Orbitals_WS_Server:
             self.data_out(data_type="status", payload="Server is running")
 
     async def stop_server(self):
-        self._tm._table.stopTimer()
-        self._tm = OrbitalsTableManager(time_limit=self._timeout,callback=self.server_print)
+        # self._tm._table.stopTimer()
+        self._tm = OrbitalsTableManager(callback=self.server_print)
         # self.connections = list()
-        for conn in self.connections:
-            await conn.close()
-        self.connections = list()
+        # for conn in self.connections:
+            # await conn.close()
+        # self.connections = list()
         
         self.server_object.ws_server.close()
         await self.server_object.ws_server.wait_closed()

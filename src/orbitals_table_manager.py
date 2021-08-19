@@ -133,6 +133,15 @@ class OrbitalsTableManager():
                 await sender.send(json.dumps(response))
 
                 await self.broadcast(f'guess has been submitted')
+            elif data["type"] == "end-turn":
+                name = self._connections[sender]
+                resp = self._table.endTurn(name)
+                response = dict()
+                response["type"] = "msg"
+                response["msg"] = resp
+                response["status"] = self._table.status()
+                await sender.send(json.dumps(response))
+                await self.broadcast(f'turn has ended')
             elif data["type"] == "replay-request":
                 name = self._connections[sender]
                 resp = self._table.replayRequest(name)

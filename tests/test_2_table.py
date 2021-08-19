@@ -219,6 +219,16 @@ def test_single_guess_turn_switch(create_game_and_teams):
     assert table.status()["current_turn"] == 'orange'
     # table.stopTimer()
 
+def test_end_turn_signal(start_game):
+    table = start_game
+    table.newClue("Ann", "EVERYTHING", 10)
+    table.clueResponse("Elsa", True)
+    assert table.status()['game_state'] == GameState.WAITING_GUESS
+    table.newGuess("Bob", "APPLE")
+    table.endTurn("Bob")
+    assert table.status()['game_state'] == GameState.WAITING_CLUE
+    assert table.status()['current_turn'] == 'orange'
+
 def test_accept_clue_with_count(create_game_and_teams):
     table = create_game_and_teams
     table.startRequest("Ann")

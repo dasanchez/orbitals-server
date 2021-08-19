@@ -358,6 +358,19 @@ class OrbitalsTable:
             #     self._tick_timer.start()
             # self._timer.start()
 
+    def endTurn(self, name: str):
+        if self._game_state != GameState.WAITING_GUESS:
+            return "not awaiting guesses"
+
+        if self.playerTeam(name) != self._current_turn:
+            return "it is the other team's turn"
+        
+        if self.playerRole(name) == 'hub':
+            return "hubs cannot submit guesses"
+
+        self._game_state = GameState.WAITING_CLUE
+        self.switchTurns()
+
     def switchTurns(self):
         if self._current_turn == 'blue':
             self._current_turn = 'orange'
