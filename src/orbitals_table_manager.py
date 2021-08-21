@@ -61,6 +61,7 @@ class OrbitalsTableManager():
                 response["msg"] = resp
                 response["status"] = self._table.status()
                 response["team"] = data["team"]
+                response["role"] = self._table.playerRole(name)
                 await sender.send(json.dumps(response))
                 
                 if resp == "team accepted":
