@@ -84,9 +84,9 @@ class OrbitalsTableManager():
                 name = self._connections[sender]
                 resp = self._table.startRequest(name)
 
-                response = dict()
-                response["type"] = "status"
-                response["status"] = self._table.status()
+                # response = dict()
+                # response["type"] = "status"
+                # response["status"] = self._table.status()
                 # await sender.send(json.dumps(response))
 
                 if self._table.status()["game_state"] == "WAITING_CLUE":
