@@ -166,15 +166,25 @@ class OrbitalsTableManager():
         msg["type"] = "broadcast"
         msg["status"] = self._table.status()
         msg["msg"] = message
-        for player in self._connections.keys():
-            if (msg["status"]["game_state"] == "WAITING_APPROVAL" and self._connections[player] == self._table.getApprover())\
-                or msg["status"]["game_state"] == "WAITING_GUESS":
-                hubmsg = msg.copy()
-                hubmsg["status"]["clue"] = self._table.currentClue()
-                hubmsg["status"]["guesses_left"] = self._table.guessesLeft()
-                await player.send(json.dumps(hubmsg))
-            else: 
-                await player.send(json.dumps(msg))
+        try:
+            for player in self._connections.keys():
+                if (msg["status"]["game_state"] == "WAITING_APPROVAL" and self._connections[player] == self._table.getApprover())\
+                    or msg["status"]["game_state"] == "WAITING_GUESS":
+                    hubmsg = msg.copy()
+                    hubmsg["status"]["clue"] = self._table.currentClue()
+                    hubmsg["status"]["guesses_left"] = self._table.guessesLeft()
+                    await player.send(json.dumps(hubmsg))
+                else: 
+                    try:
+                        await player.send(json.dumps(msg))
+                    except:
+                        # print("Send failed!")
+                        # Sometimes the send will fail if too many users leave at once, that's ok for broadcasts
+                        pass
+        except:
+            # sometimes the keys dictionary will change size during iteration if too many users leave at once,
+            # that's ok for broadcasts
+            pass
         if self._callback:
             self._callback(msg)
 

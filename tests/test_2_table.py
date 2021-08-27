@@ -67,6 +67,15 @@ def test_accept_full_teams(create_game_and_teams):
     assert table.players()["Gina"][0] == "orange"
     assert table.players()["Ann"][0] == "blue"
 
+def test_waiting_players():
+    ot = OrbitalsTable()
+    assert ot.status()["game_state"] == "WAITING_PLAYERS"
+    ot.playerJoins("Ann")
+    assert ot.status()["game_state"] == "WAITING_PLAYERS"
+    ot.teamRequest("Ann", "blue")
+    assert ot.status()["game_state"] == "WAITING_PLAYERS"
+    ot.roleRequest("Ann", "hub")
+
 def test_waiting_players_to_waiting_start():
     ot = OrbitalsTable()
     ot.playerJoins("Ann")
